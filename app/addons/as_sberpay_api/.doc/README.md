@@ -29,7 +29,7 @@ app/addons/as_sberpay_api/
 │   ├── FLOW.md                        # Потоки оплаты
 │   └── SETTINGS.md                    # Настройки в админке
 
-design/backend/templates/views/payments/components/cc_processors/
+design/backend/templates/addons/as_sberpay_api/views/payments/components/cc_processors/
 └── as_sberpay_api.tpl                 # Шаблон настроек в админке
 
 var/langs/ru/addons/as_sberpay_api.po  # Русский перевод
