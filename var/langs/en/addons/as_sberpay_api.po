@@ -1,0 +1,194 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: cs-cart-en\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language-Team: English\n"
+"Language: en_US\n"
+
+msgctxt "Addons::name::as_sberpay_api"
+msgid "AS SberPay API"
+msgstr "AS SberPay API"
+
+msgctxt "Addons::description::as_sberpay_api"
+msgid "Payment via Sberbank acquiring (REST API)"
+msgstr "Payment via Sberbank acquiring (REST API)"
+
+msgctxt "Languages::addons.as_sberpay_api.login"
+msgid "Login"
+msgstr "Login"
+
+msgctxt "Languages::addons.as_sberpay_api.login_hint"
+msgid "API login with -api suffix (e.g. P1234567890-api)"
+msgstr "API login with -api suffix (e.g. P1234567890-api)"
+
+msgctxt "Languages::addons.as_sberpay_api.password"
+msgid "Password"
+msgstr "Password"
+
+msgctxt "Languages::addons.as_sberpay_api.two_staging"
+msgid "Payment staging"
+msgstr "Payment staging"
+
+msgctxt "Languages::addons.as_sberpay_api.one_stage"
+msgid "One-stage"
+msgstr "One-stage"
+
+msgctxt "Languages::addons.as_sberpay_api.two_stage"
+msgid "Two-stage"
+msgstr "Two-stage"
+
+msgctxt "Languages::addons.as_sberpay_api.confirmed_order_status"
+msgid "Confirmed order status"
+msgstr "Confirmed order status"
+
+msgctxt "Languages::addons.as_sberpay_api.logging"
+msgid "Enable logging"
+msgstr "Enable logging"
+
+msgctxt "Languages::addons.as_sberpay_api.fiscal_settings"
+msgid "Fiscal settings (54-FZ)"
+msgstr "Fiscal settings (54-FZ)"
+
+msgctxt "Languages::addons.as_sberpay_api.send_order"
+msgid "Send cart to gateway"
+msgstr "Send cart to gateway"
+
+msgctxt "Languages::addons.as_sberpay_api.send_order_hint"
+msgid "Required for fiscal receipts via ATOL"
+msgstr "Required for fiscal receipts via ATOL"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system"
+msgid "Tax system"
+msgstr "Tax system"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system_0"
+msgid "General"
+msgstr "General"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system_1"
+msgid "Simplified, income"
+msgstr "Simplified, income"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system_2"
+msgid "Simplified, income minus expenses"
+msgstr "Simplified, income minus expenses"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system_3"
+msgid "Unified tax on imputed income"
+msgstr "Unified tax on imputed income"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system_4"
+msgid "Unified agricultural tax"
+msgstr "Unified agricultural tax"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_system_5"
+msgid "Patent taxation system"
+msgstr "Patent taxation system"
+
+msgctxt "Languages::addons.as_sberpay_api.tax_type"
+msgid "Default VAT rate"
+msgstr "Default VAT rate"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_none"
+msgid "No VAT"
+msgstr "No VAT"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_0"
+msgid "VAT 0%"
+msgstr "VAT 0%"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_10"
+msgid "VAT 10%"
+msgstr "VAT 10%"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_20"
+msgid "VAT 20%"
+msgstr "VAT 20%"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_5"
+msgid "VAT 5%"
+msgstr "VAT 5%"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_7"
+msgid "VAT 7%"
+msgstr "VAT 7%"
+
+msgctxt "Languages::addons.as_sberpay_api.ffd_version"
+msgid "FFD version"
+msgstr "FFD version"
+
+msgctxt "Languages::addons.as_sberpay_api.payment_method_type"
+msgid "Payment method type"
+msgstr "Payment method type"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_full_prepay"
+msgid "Full prepayment"
+msgstr "Full prepayment"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_partial_prepay"
+msgid "Partial prepayment"
+msgstr "Partial prepayment"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_advance"
+msgid "Advance"
+msgstr "Advance"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_full_payment"
+msgid "Full payment"
+msgstr "Full payment"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_partial_credit"
+msgid "Partial payment with credit"
+msgstr "Partial payment with credit"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_credit_transfer"
+msgid "Transfer without payment (credit)"
+msgstr "Transfer without payment (credit)"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_credit_payment"
+msgid "Credit payment"
+msgstr "Credit payment"
+
+msgctxt "Languages::addons.as_sberpay_api.payment_object_type"
+msgid "Payment object type"
+msgstr "Payment object type"
+
+msgctxt "Languages::addons.as_sberpay_api.po_goods"
+msgid "Goods"
+msgstr "Goods"
+
+msgctxt "Languages::addons.as_sberpay_api.po_excise"
+msgid "Excised goods"
+msgstr "Excised goods"
+
+msgctxt "Languages::addons.as_sberpay_api.po_job"
+msgid "Job"
+msgstr "Job"
+
+msgctxt "Languages::addons.as_sberpay_api.po_service"
+msgid "Service"
+msgstr "Service"
+
+msgctxt "Languages::addons.as_sberpay_api.po_lottery"
+msgid "Lottery ticket"
+msgstr "Lottery ticket"
+
+msgctxt "Languages::addons.as_sberpay_api.po_ip"
+msgid "Intellectual property"
+msgstr "Intellectual property"
+
+msgctxt "Languages::addons.as_sberpay_api.po_payment"
+msgid "Payment"
+msgstr "Payment"
+
+msgctxt "Languages::addons.as_sberpay_api.po_commission"
+msgid "Agent commission"
+msgstr "Agent commission"
+
+msgctxt "Languages::addons.as_sberpay_api.po_combined"
+msgid "Combined"
+msgstr "Combined"
+
+msgctxt "Languages::addons.as_sberpay_api.po_other"
+msgid "Other"
+msgstr "Other"
