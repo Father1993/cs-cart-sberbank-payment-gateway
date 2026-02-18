@@ -2,7 +2,7 @@
     <label class="control-label" for="as_sberpay_login">{__("addons.as_sberpay_api.login")}:</label>
     <div class="controls">
         <input type="text" name="payment_data[processor_params][login]" id="as_sberpay_login"
-               value="{$processor_params.login}" size="60">
+               value="{$processor_params.login|default:''}" size="60">
         <p class="muted description">{__("addons.as_sberpay_api.login_hint")}</p>
     </div>
 </div>
@@ -11,7 +11,7 @@
     <label class="control-label" for="as_sberpay_password">{__("addons.as_sberpay_api.password")}:</label>
     <div class="controls">
         <input type="password" name="payment_data[processor_params][password]" id="as_sberpay_password"
-               value="{$processor_params.password}" size="60">
+               value="{$processor_params.password|default:''}" size="60">
     </div>
 </div>
 
