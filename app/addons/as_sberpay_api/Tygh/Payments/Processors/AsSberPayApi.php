@@ -12,6 +12,8 @@
 
 namespace Tygh\Payments\Processors;
 
+use Tygh\Registry;
+
 if (!defined('BOOTSTRAP')) { die('Access denied'); }
 
 class AsSberPayApi
@@ -254,7 +256,7 @@ class AsSberPayApi
             return;
         }
 
-        $dir = fn_get_files_dir_path() . 'as_sberpay_api_logs/';
+        $dir = Registry::get('config.dir.var') . 'logs/as_sberpay_api/';
         fn_mkdir($dir);
 
         $file = $dir . 'sberpay_' . date('Y-m') . '.log';

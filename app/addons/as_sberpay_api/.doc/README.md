@@ -138,7 +138,7 @@ Callback может приходить повторно. Модуль прове
 
 При включённом логировании записи идут в:
 ```
-var/files/.../as_sberpay_api_logs/sberpay_YYYY-MM.log
+var/logs/as_sberpay_api/sberpay_YYYY-MM.log
 ```
 
 Логируются:
