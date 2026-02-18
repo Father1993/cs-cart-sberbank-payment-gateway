@@ -3,16 +3,31 @@
     <id>as_sberpay_api</id>
 
     <version>1.0.0</version>
-    <priority>7200</priority>
-    <position>720</position>
+
+    <authors>
+        <author>
+            <name>Andrej Spinej</name>
+            <supplier>Andrej Spinej</supplier>
+        </author>
+    </authors>
+    <supplier>Andrej Spinej</supplier>
+
+    <priority>1000</priority>
     <auto_install>MULTIVENDOR,ULTIMATE</auto_install>
     <status>active</status>
-
+    <default_language>ru</default_language>
     <compatibility>
         <core_edition>
             ULTIMATE,MULTIVENDOR
         </core_edition>
     </compatibility>
+
+    <translations>
+        <item for="name" lang="en">AS SberPay API</item>
+        <item for="name" lang="ru">AS SberPay API</item>
+        <item for="description" lang="en">Payment via Sberbank acquiring (REST API)</item>
+        <item for="description" lang="ru">Приём платежей через интернет-эквайринг Сбербанка (REST API)</item>
+    </translations>
 
     <functions>
         <item for="install">fn_as_sberpay_api_install</item>
