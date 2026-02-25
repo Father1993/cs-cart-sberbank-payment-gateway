@@ -204,6 +204,7 @@ function fn_as_sberpay_api_build_response($response, $processor)
     // Отмена
     if ($status === 3) {
         return [
+            'order_status'      => 'F',
             'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
             'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
             'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,

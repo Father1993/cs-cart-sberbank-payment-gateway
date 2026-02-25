@@ -13,8 +13,8 @@ payments/as_sberpay_api.php (блок else)
            │
            ▼
 AsSberPayApi::register($order_info)
-  → POST register.do
-  → Получаем orderId + formUrl
+  → POST register.do (JSON, jsonParams.sberbankOnlineAttributes)
+  → Получаем orderId + formUrl + sbolDeepLink
            │
            ▼
 fn_update_order_payment_info() — сохраняем orderId как transaction_id
@@ -58,9 +58,10 @@ AsSberPayApi::getOrderStatusExtended($gateway_id)
            │
            ▼
 fn_as_sberpay_api_build_response()
-  orderStatus=2 → confirmed
-  orderStatus=3 → отмена
-  orderStatus=4 → возврат
+  orderStatus=1 → confirmed (холд)
+  orderStatus=2 → confirmed (оплачен)
+  orderStatus=3 → F (отмена)
+  orderStatus=4 → обновить payment_info (возврат)
   иначе        → F (failed)
            │
            ▼

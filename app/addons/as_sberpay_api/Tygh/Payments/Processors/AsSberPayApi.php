@@ -2,10 +2,9 @@
 /**
  * AS SberPay API — основной класс процессора.
  *
- * Работает с REST API Сбербанка (register.do / getOrderStatusExtended.do).
- * Поддерживает оба шлюза:
- *   - Старый RBS:  securepayments.sberbank.ru/payment/rest/
- *   - Тестовый:    3dsec.sberbank.ru/payment/rest/
+ * Новый партнёрский REST API Сбербанка (application/json):
+ *   - Тест:  ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/
+ *   - Прод:  epay.sberbank.ru/ecomm/gw/partner/api/v1/
  *
  * Фискализация (54-ФЗ) через orderBundle → Сбер → АТОЛ → ФНС.
  */
@@ -19,8 +18,8 @@ if (!defined('BOOTSTRAP')) { die('Access denied'); }
 class AsSberPayApi
 {
     /** URL-ы API */
-    const TEST_URL = 'https://3dsec.sberbank.ru/payment/rest/';
-    const PROD_URL = 'https://securepayments.sberbank.ru/payment/rest/';
+    const TEST_URL = 'https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/';
+    const PROD_URL = 'https://epay.sberbank.ru/ecomm/gw/partner/api/v1/';
 
     /** @var string Логин API (-api) */
     private $login;
@@ -122,16 +121,17 @@ class AsSberPayApi
             'returnUrl'   => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
             'failUrl'     => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
             'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
-            'jsonParams'  => json_encode([
+            'jsonParams'  => [
                 'CMS' => PRODUCT_NAME . ' ' . PRODUCT_VERSION,
                 'Module-Version' => '1.0.0',
-            ]),
+                'sberbankOnlineAttributes' => ['language' => 'ru'],
+            ],
         ];
 
         // Телефон клиента
         if (!empty($order_info['phone'])) {
             $phone = $this->cleanPhone($order_info['phone']);
-            $args['orderPayerData'] = json_encode(['mobilePhone' => $phone]);
+            $args['orderPayerData'] = ['mobilePhone' => $phone];
         }
 
         // clientId для повторных оплат
@@ -146,7 +146,7 @@ class AsSberPayApi
             $bundle = $this->buildOrderBundle($order_info);
             if ($bundle) {
                 $args['taxSystem'] = $this->tax_system;
-                $args['orderBundle'] = json_encode($bundle);
+                $args['orderBundle'] = $bundle;
             }
         }
 
@@ -225,9 +225,9 @@ class AsSberPayApi
      * @param int    $amount           Сумма в копейках (0 = полная сумма)
      * @return array Ответ API
      */
-    public function deposit($gateway_order_id, $amount = 0)
+    public function deposit($gateway_id, $amount = 0)
     {
-        return $this->financialRequest('deposit.do', $gateway_order_id, $amount);
+        return $this->financialRequest('deposit.do', $gateway_id, $amount);
     }
 
     // =========================================================================
@@ -272,7 +272,7 @@ class AsSberPayApi
     // =========================================================================
 
     /**
-     * HTTP POST запрос к API Сбера (application/x-www-form-urlencoded).
+     * HTTP POST запрос к API Сбера (application/json).
      *
      * @param string $endpoint Метод API (register.do и т.д.)
      * @param array  $data     Параметры запроса
@@ -289,8 +289,8 @@ class AsSberPayApi
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
-            CURLOPT_POSTFIELDS     => http_build_query($data, '', '&'),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS     => json_encode($data),
         ]);
 
         $raw = curl_exec($ch);
@@ -424,7 +424,11 @@ class AsSberPayApi
             ];
         }
 
+        $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
+
         return [
+            'ffdVersion'        => $ffd,
+            'receiptType'       => 'income',
             'orderCreationDate' => time(),
             'customerDetails'   => [
                 'email' => !empty($order_info['email']) ? $order_info['email'] : '',
