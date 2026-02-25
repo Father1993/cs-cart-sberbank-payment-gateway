@@ -128,10 +128,12 @@ class AsSberPayApi
             ],
         ];
 
-        // Телефон клиента
+        // Телефон и email — топ-уровневые параметры нового API
         if (!empty($order_info['phone'])) {
-            $phone = $this->cleanPhone($order_info['phone']);
-            $args['orderPayerData'] = ['mobilePhone' => $phone];
+            $args['phone'] = '+' . $this->cleanPhone($order_info['phone']);
+        }
+        if (!empty($order_info['email'])) {
+            $args['email'] = $order_info['email'];
         }
 
         // clientId для повторных оплат
@@ -145,8 +147,11 @@ class AsSberPayApi
         if ($this->send_order) {
             $bundle = $this->buildOrderBundle($order_info);
             if ($bundle) {
-                $args['taxSystem'] = $this->tax_system;
-                $args['orderBundle'] = $bundle;
+                $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
+                $args['taxSystem']    = $this->tax_system;
+                $args['ffdVersion']   = $ffd;
+                $args['receiptType']  = 'income';
+                $args['orderBundle']  = $bundle;
             }
         }
 
@@ -424,15 +429,13 @@ class AsSberPayApi
             ];
         }
 
-        $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
+        $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
 
         return [
-            'ffdVersion'        => $ffd,
-            'receiptType'       => 'income',
             'orderCreationDate' => time(),
             'customerDetails'   => [
                 'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-                'phone' => $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : ''),
+                'phone' => $phone ? '+' . $phone : '',
             ],
             'cartItems' => ['items' => $items],
         ];
