@@ -1,0 +1,56 @@
+image: debian:12
+
+stages:
+    - deploy
+
+.before_script_template: &before_script |
+    apt-get update -qq && apt-get install -y openssh-client
+    mkdir -p ~/.ssh
+    chmod 700 ~/.ssh
+    echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+    chmod 600 ~/.ssh/id_ed25519
+    ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
+    chmod 644 ~/.ssh/known_hosts
+
+deploy_dev:
+    stage: deploy
+    tags:
+        - Deploy
+    only:
+        - dev
+    variables:
+        SERVER_IP: 10.0.0.20
+        PROJECT_PATH: /var/www/html
+        SITE_DIR: dev-uroven.pro
+        REPO_DIR: repo/cs-cart-as_sberpay_api
+    script:
+        - *before_script
+        - ssh devuser@$SERVER_IP "
+          cd $PROJECT_PATH/$REPO_DIR &&
+          git checkout dev &&
+          git pull origin dev &&
+          cd $PROJECT_PATH &&
+          cscart-sdk addon:symlink as_sberpay_api repo/cs-cart-as_sberpay_api $SITE_DIR --templates-to-design
+          "
+
+deploy_prod:
+    stage: deploy
+    tags:
+        - Deploy
+    only:
+        - main
+    when: manual
+    variables:
+        SERVER_IP: 10.0.0.30
+        PROJECT_PATH: /var/www/html
+        SITE_DIR: uroven.pro
+        REPO_DIR: repo/cs-cart-as_sberpay_api
+    script:
+        - *before_script
+        - ssh produser@$SERVER_IP "
+          cd $PROJECT_PATH/$REPO_DIR &&
+          git checkout main &&
+          git pull origin main &&
+          cd $PROJECT_PATH &&
+          cscart-sdk addon:symlink as_sberpay_api repo/cs-cart-as_sberpay_api $SITE_DIR --templates-to-design
+          "
