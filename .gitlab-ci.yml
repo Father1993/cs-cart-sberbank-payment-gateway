@@ -15,12 +15,18 @@ deploy_dev:
     SITE_DIR: "dev-uroven.pro"
     REPO_DIR: "repo/cs-cart-as_sberpay_api"
     ADDON_ID: "as_sberpay_api"
+    CSCART_SDK_PATH: "/home/devuser/.config/composer/vendor/bin/cscart-sdk"
   before_script:
     - apt-get update -qq && apt-get install -y openssh-client
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - |
-      echo "$SSH_PRIVATE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > ~/.ssh/id_ed25519
+      echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+      sed -i '/^$/d' ~/.ssh/id_ed25519
+      if ! head -1 ~/.ssh/id_ed25519 | grep -q "BEGIN"; then
+        echo "Ошибка: SSH ключ не начинается с BEGIN"
+        exit 1
+      fi
     - chmod 600 ~/.ssh/id_ed25519
     - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
     - chmod 644 ~/.ssh/known_hosts
@@ -37,8 +43,8 @@ deploy_dev:
         git pull origin dev
         cd $PROJECT_PATH
         echo 'Обновляем симлинк для модуля $ADDON_ID...'
-        cscart-sdk addon:symlink $ADDON_ID $REPO_DIR $SITE_DIR --templates-to-design
-        echo 'Деплой завершён успешно'
+        $CSCART_SDK_PATH addon:symlink $ADDON_ID $REPO_DIR $SITE_DIR --templates-to-design
+        echo '✅ Dev деплой завершён успешно'
       "
   environment:
     name: development
@@ -57,12 +63,18 @@ deploy_prod:
     SITE_DIR: "uroven.pro"
     REPO_DIR: "repo/cs-cart-as_sberpay_api"
     ADDON_ID: "as_sberpay_api"
+    CSCART_SDK_PATH: "/home/produser/.config/composer/vendor/bin/cscart-sdk"
   before_script:
     - apt-get update -qq && apt-get install -y openssh-client
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - |
-      echo "$SSH_PRIVATE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > ~/.ssh/id_ed25519
+      echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+      sed -i '/^$/d' ~/.ssh/id_ed25519
+      if ! head -1 ~/.ssh/id_ed25519 | grep -q "BEGIN"; then
+        echo "Ошибка: SSH ключ не начинается с BEGIN"
+        exit 1
+      fi
     - chmod 600 ~/.ssh/id_ed25519
     - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
     - chmod 644 ~/.ssh/known_hosts
@@ -79,8 +91,8 @@ deploy_prod:
         git pull origin main
         cd $PROJECT_PATH
         echo 'Обновляем симлинк для модуля $ADDON_ID...'
-        cscart-sdk addon:symlink $ADDON_ID $REPO_DIR $SITE_DIR --templates-to-design
-        echo 'Деплой завершён успешно'
+        $CSCART_SDK_PATH addon:symlink $ADDON_ID $REPO_DIR $SITE_DIR --templates-to-design
+        echo '✅ Prod деплой завершён успешно'
       "
   environment:
     name: production
