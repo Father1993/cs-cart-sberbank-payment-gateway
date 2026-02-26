@@ -3,20 +3,6 @@ image: debian:12
 stages:
   - deploy
 
-.before_ssh_setup: &before_ssh_setup
-  - apt-get update -qq && apt-get install -y openssh-client
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - |
-    # Правильная запись ключа с обработкой всех возможных проблем
-    echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_ed25519 2>/dev/null || \
-    echo "$SSH_PRIVATE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > ~/.ssh/id_ed25519
-  - chmod 600 ~/.ssh/id_ed25519
-  - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
-  - chmod 644 ~/.ssh/known_hosts
-  # Проверка ключа перед использованием
-  - ssh-keygen -l -f ~/.ssh/id_ed25519 || (echo "Ошибка: неверный формат SSH ключа" && exit 1)
-
 deploy_dev:
   stage: deploy
   tags:
@@ -30,7 +16,14 @@ deploy_dev:
     REPO_DIR: "repo/cs-cart-as_sberpay_api"
     ADDON_ID: "as_sberpay_api"
   before_script:
-    - *before_ssh_setup
+    - apt-get update -qq && apt-get install -y openssh-client
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - |
+      echo "$SSH_PRIVATE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
+    - chmod 644 ~/.ssh/known_hosts
   script:
     - |
       ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 devuser@$SERVER_IP "
@@ -65,7 +58,14 @@ deploy_prod:
     REPO_DIR: "repo/cs-cart-as_sberpay_api"
     ADDON_ID: "as_sberpay_api"
   before_script:
-    - *before_ssh_setup
+    - apt-get update -qq && apt-get install -y openssh-client
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - |
+      echo "$SSH_PRIVATE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
+    - chmod 644 ~/.ssh/known_hosts
   script:
     - |
       ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 produser@$SERVER_IP "
