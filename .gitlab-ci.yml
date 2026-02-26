@@ -1,56 +1,87 @@
 image: debian:12
 
 stages:
-    - deploy
+  - deploy
 
-.before_script_template: &before_script |
-    apt-get update -qq && apt-get install -y openssh-client
-    mkdir -p ~/.ssh
-    chmod 700 ~/.ssh
-    echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
-    chmod 600 ~/.ssh/id_ed25519
-    ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
-    chmod 644 ~/.ssh/known_hosts
+.before_ssh_setup: &before_ssh_setup
+  - apt-get update -qq && apt-get install -y openssh-client
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - |
+    # Правильная запись ключа с обработкой всех возможных проблем
+    echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_ed25519 2>/dev/null || \
+    echo "$SSH_PRIVATE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > ~/.ssh/id_ed25519
+  - chmod 600 ~/.ssh/id_ed25519
+  - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts 2>/dev/null || true
+  - chmod 644 ~/.ssh/known_hosts
+  # Проверка ключа перед использованием
+  - ssh-keygen -l -f ~/.ssh/id_ed25519 || (echo "Ошибка: неверный формат SSH ключа" && exit 1)
 
 deploy_dev:
-    stage: deploy
-    tags:
-        - Deploy
-    only:
-        - dev
-    variables:
-        SERVER_IP: 10.0.0.20
-        PROJECT_PATH: /var/www/html
-        SITE_DIR: dev-uroven.pro
-        REPO_DIR: repo/cs-cart-as_sberpay_api
-    script:
-        - *before_script
-        - ssh devuser@$SERVER_IP "
-          cd $PROJECT_PATH/$REPO_DIR &&
-          git checkout dev &&
-          git pull origin dev &&
-          cd $PROJECT_PATH &&
-          cscart-sdk addon:symlink as_sberpay_api repo/cs-cart-as_sberpay_api $SITE_DIR --templates-to-design
-          "
+  stage: deploy
+  tags:
+    - Deploy
+  only:
+    - dev
+  variables:
+    SERVER_IP: "10.0.0.20"
+    PROJECT_PATH: "/var/www/html"
+    SITE_DIR: "dev-uroven.pro"
+    REPO_DIR: "repo/cs-cart-as_sberpay_api"
+    ADDON_ID: "as_sberpay_api"
+  before_script:
+    - *before_ssh_setup
+  script:
+    - |
+      ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 devuser@$SERVER_IP "
+        set -e
+        cd $PROJECT_PATH/$REPO_DIR || {
+          echo 'Ошибка: директория $PROJECT_PATH/$REPO_DIR не найдена'
+          exit 1
+        }
+        git fetch origin
+        git checkout dev
+        git pull origin dev
+        cd $PROJECT_PATH
+        echo 'Обновляем симлинк для модуля $ADDON_ID...'
+        cscart-sdk addon:symlink $ADDON_ID $REPO_DIR $SITE_DIR --templates-to-design
+        echo 'Деплой завершён успешно'
+      "
+  environment:
+    name: development
+    url: https://dev-uroven.pro
 
 deploy_prod:
-    stage: deploy
-    tags:
-        - Deploy
-    only:
-        - main
-    when: manual
-    variables:
-        SERVER_IP: 10.0.0.30
-        PROJECT_PATH: /var/www/html
-        SITE_DIR: uroven.pro
-        REPO_DIR: repo/cs-cart-as_sberpay_api
-    script:
-        - *before_script
-        - ssh produser@$SERVER_IP "
-          cd $PROJECT_PATH/$REPO_DIR &&
-          git checkout main &&
-          git pull origin main &&
-          cd $PROJECT_PATH &&
-          cscart-sdk addon:symlink as_sberpay_api repo/cs-cart-as_sberpay_api $SITE_DIR --templates-to-design
-          "
+  stage: deploy
+  tags:
+    - Deploy
+  only:
+    - main
+  when: manual
+  variables:
+    SERVER_IP: "10.0.0.30"
+    PROJECT_PATH: "/var/www/html"
+    SITE_DIR: "uroven.pro"
+    REPO_DIR: "repo/cs-cart-as_sberpay_api"
+    ADDON_ID: "as_sberpay_api"
+  before_script:
+    - *before_ssh_setup
+  script:
+    - |
+      ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 produser@$SERVER_IP "
+        set -e
+        cd $PROJECT_PATH/$REPO_DIR || {
+          echo 'Ошибка: директория $PROJECT_PATH/$REPO_DIR не найдена'
+          exit 1
+        }
+        git fetch origin
+        git checkout main
+        git pull origin main
+        cd $PROJECT_PATH
+        echo 'Обновляем симлинк для модуля $ADDON_ID...'
+        cscart-sdk addon:symlink $ADDON_ID $REPO_DIR $SITE_DIR --templates-to-design
+        echo 'Деплой завершён успешно'
+      "
+  environment:
+    name: production
+    url: https://uroven.pro
