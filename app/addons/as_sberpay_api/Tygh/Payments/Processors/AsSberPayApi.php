@@ -121,10 +121,11 @@ class AsSberPayApi
             'returnUrl'   => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
             'failUrl'     => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
             'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
+            'features'    => 'FORCE_FULL_TDS',
             'jsonParams'  => [
                 'CMS' => PRODUCT_NAME . ' ' . PRODUCT_VERSION,
                 'Module-Version' => '1.0.0',
-                'sberbankOnlineAttributes' => ['language' => 'ru'],
+                'sberbankOnlineAttributes' => json_encode(['language' => 'ru']),
             ],
         ];
 
@@ -360,7 +361,7 @@ class AsSberPayApi
         foreach ($order_info['products'] as $product) {
             $qty   = !empty($product['amount']) ? (int) $product['amount'] : 1;
             $price = !empty($product['price']) ? (int) round($product['price'] * 100) : 0;
-            $name  = !empty($product['product']) ? strip_tags($product['product']) : 'Товар';
+            $name  = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
 
             $measure = ($this->ffd_version === 'v1_2')
                 ? ['value' => $qty, 'measure' => 0]
@@ -375,8 +376,8 @@ class AsSberPayApi
                 'itemPrice'  => $price,
                 'tax'        => ['taxType' => $this->tax_type],
                 'itemAttributes' => ['attributes' => [
-                    ['name' => 'paymentMethod', 'value' => $this->payment_method_type],
-                    ['name' => 'paymentObject', 'value' => $this->payment_object_type],
+                    ['name' => 'paymentMethod', 'value' => (string) $this->payment_method_type],
+                    ['name' => 'paymentObject', 'value' => (string) $this->payment_object_type],
                 ]],
             ];
             $pos++;
@@ -391,17 +392,17 @@ class AsSberPayApi
 
             $items[] = [
                 'positionId' => $pos,
-                'name'       => !empty($order_info['payment_method']['surcharge_title'])
+                'name'       => mb_substr(!empty($order_info['payment_method']['surcharge_title'])
                     ? $order_info['payment_method']['surcharge_title']
-                    : 'Наценка за оплату',
+                    : 'Наценка за оплату', 0, 127),
                 'quantity'   => $measure,
                 'itemAmount' => (int) round($surcharge * 100),
                 'itemCode'   => 'Surcharge.' . $pos,
                 'itemPrice'  => (int) round($surcharge * 100),
                 'tax'        => ['taxType' => $this->tax_type],
                 'itemAttributes' => ['attributes' => [
-                    ['name' => 'paymentMethod', 'value' => $this->payment_method_type],
-                    ['name' => 'paymentObject', 'value' => 4],
+                    ['name' => 'paymentMethod', 'value' => (string) $this->payment_method_type],
+                    ['name' => 'paymentObject', 'value' => '4'],
                 ]],
             ];
             $pos++;
@@ -423,8 +424,8 @@ class AsSberPayApi
                 'itemPrice'  => (int) round($shipping * 100),
                 'tax'        => ['taxType' => $this->tax_type],
                 'itemAttributes' => ['attributes' => [
-                    ['name' => 'paymentMethod', 'value' => $this->payment_method_type],
-                    ['name' => 'paymentObject', 'value' => 4],
+                    ['name' => 'paymentMethod', 'value' => (string) $this->payment_method_type],
+                    ['name' => 'paymentObject', 'value' => '4'],
                 ]],
             ];
         }
