@@ -192,3 +192,19 @@ msgstr "Combined"
 msgctxt "Languages::addons.as_sberpay_api.po_other"
 msgid "Other"
 msgstr "Other"
+
+msgctxt "Languages::payment_info._gateway_status"
+msgid "Gateway status"
+msgstr "Gateway status"
+
+msgctxt "Languages::payment_info._gateway_approved"
+msgid "Approved amount"
+msgstr "Approved amount"
+
+msgctxt "Languages::payment_info._gateway_deposited"
+msgid "Deposited amount"
+msgstr "Deposited amount"
+
+msgctxt "Languages::payment_info._gateway_refunded"
+msgid "Refunded amount"
+msgstr "Refunded amount"
