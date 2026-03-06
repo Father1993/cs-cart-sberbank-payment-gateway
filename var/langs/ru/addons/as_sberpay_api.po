@@ -192,3 +192,19 @@ msgstr "Составной предмет расчёта"
 msgctxt "Languages::addons.as_sberpay_api.po_other"
 msgid "Other"
 msgstr "Иной предмет расчёта"
+
+msgctxt "Languages::gateway_status"
+msgid "gateway_status"
+msgstr "Статус в шлюзе"
+
+msgctxt "Languages::gateway_approved"
+msgid "gateway_approved"
+msgstr "Авторизованная сумма"
+
+msgctxt "Languages::gateway_deposited"
+msgid "gateway_deposited"
+msgstr "Списанная сумма"
+
+msgctxt "Languages::gateway_refunded"
+msgid "gateway_refunded"
+msgstr "Возвращённая сумма"

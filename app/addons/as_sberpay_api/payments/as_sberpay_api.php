@@ -98,15 +98,22 @@ if (defined('PAYMENT_NOTIFICATION')) {
             $processor_data = fn_get_processor_data($order_info['payment_id']);
         }
 
+        $processor = new AsSberPayApi($processor_data);
+
+        if ($processor->isLogging()) {
+            $processor->log($_REQUEST, 'Return: incoming REQUEST');
+        }
+
         $pp_response = ['order_status' => 'F'];
 
         $gateway_id = $order_info['payment_info']['transaction_id'] ?? '';
-        $request_order_id = $_REQUEST['orderId'] ?? '';
+        $request_order_id = $_REQUEST['orderId'] ?? $_REQUEST['mdOrder'] ?? '';
 
-        if (empty($gateway_id) || $gateway_id !== $request_order_id) {
+        if (!empty($request_order_id) && $request_order_id !== $gateway_id) {
             $pp_response['reason_text'] = 'Неверный идентификатор транзакции';
+        } elseif (empty($gateway_id)) {
+            $pp_response['reason_text'] = 'Не найден идентификатор транзакции';
         } else {
-            $processor = new AsSberPayApi($processor_data);
             $response = $processor->getOrderStatusExtended($gateway_id);
 
             if ($processor->isLogging()) {
