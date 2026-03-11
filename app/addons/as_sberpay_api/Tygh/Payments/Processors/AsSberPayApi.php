@@ -375,10 +375,18 @@ class AsSberPayApi
                 'itemCode'   => ($product['product_code'] ?? 'P') . '.' . $pos,
                 'itemPrice'  => $price,
                 'tax'        => ['taxType' => $this->tax_type],
-                'itemAttributes' => ['attributes' => [
-                    ['name' => 'paymentMethod', 'value' => (string) $this->payment_method_type],
-                    ['name' => 'paymentObject', 'value' => (string) $this->payment_object_type],
-                ]],
+                'itemAttributes' => [
+                    'attributes' => [
+                        [
+                            'name' => 'paymentMethod',
+                            'value' => $this->payment_method_type
+                        ],
+                        [
+                            'name' => 'paymentObject',
+                            'value' => $this->payment_object_type
+                        ]
+                    ]
+                ],
             ];
             $pos++;
         }
@@ -400,10 +408,18 @@ class AsSberPayApi
                 'itemCode'   => 'Surcharge.' . $pos,
                 'itemPrice'  => (int) round($surcharge * 100),
                 'tax'        => ['taxType' => $this->tax_type],
-                'itemAttributes' => ['attributes' => [
-                    ['name' => 'paymentMethod', 'value' => (string) $this->payment_method_type],
-                    ['name' => 'paymentObject', 'value' => '4'],
-                ]],
+                'itemAttributes' => [
+                    'attributes' => [
+                        [
+                            'name' => 'paymentMethod',
+                            'value' => $this->payment_method_type
+                        ],
+                        [
+                            'name' => 'paymentObject',
+                            'value' => 4
+                        ]
+                    ]
+                ],
             ];
             $pos++;
         }
@@ -423,17 +439,25 @@ class AsSberPayApi
                 'itemCode'   => 'Delivery.' . $pos,
                 'itemPrice'  => (int) round($shipping * 100),
                 'tax'        => ['taxType' => $this->tax_type],
-                'itemAttributes' => ['attributes' => [
-                    ['name' => 'paymentMethod', 'value' => (string) $this->payment_method_type],
-                    ['name' => 'paymentObject', 'value' => '4'],
-                ]],
+                'itemAttributes' => [
+                    'attributes' => [
+                        [
+                            'name' => 'paymentMethod',
+                            'value' => $this->payment_method_type
+                        ],
+                        [
+                            'name' => 'paymentObject',
+                            'value' => 4
+                        ]
+                    ]
+                ],
             ];
         }
 
         $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
 
             return [
-        'orderCreationDate' => time() * 1000,
+        'orderCreationDate' => (int) (microtime(true) * 1000),
         'customerDetails'   => [
             'email' => !empty($order_info['email']) ? $order_info['email'] : '',
             'phone' => $phone ? '+' . $phone : '',
