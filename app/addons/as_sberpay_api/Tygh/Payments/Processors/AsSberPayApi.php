@@ -60,6 +60,9 @@ class AsSberPayApi
     /** @var bool Двустадийные платежи */
     private $two_staging;
 
+    /** @var array Данные компании для чека (company) */
+    private $company = [];
+
     /** @var int Код последней ошибки */
     private $error_code = 0;
 
@@ -95,6 +98,13 @@ class AsSberPayApi
 
         $this->confirmed_status = !empty($p['confirmed_order_status']) ? $p['confirmed_order_status'] : 'P';
         $this->two_staging = !empty($p['two_staging']) && $p['two_staging'] == '1';
+
+        $this->company = [
+            'email'           => isset($p['company_email']) ? (string) $p['company_email'] : '',
+            'sno'             => isset($p['company_sno']) ? (string) $p['company_sno'] : 'osn',
+            'inn'             => isset($p['company_inn']) ? (string) $p['company_inn'] : '',
+            'paymentAddress'  => isset($p['company_payment_address']) ? (string) $p['company_payment_address'] : '',
+        ];
     }
 
     // =========================================================================
@@ -121,13 +131,6 @@ class AsSberPayApi
             'returnUrl'   => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
             'failUrl'     => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
             'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
-            'jsonParams'  => [
-                'CMS'             => PRODUCT_NAME . ' ' . PRODUCT_VERSION,
-                'Module-Version'  => '1.0.0',
-                'sberbankOnlineAttributes' => [
-                    'language' => 'ru',
-                ],
-            ],
         ];
 
         // Телефон и email — топ-уровневые параметры нового API
@@ -346,167 +349,105 @@ class AsSberPayApi
     }
 
     /**
-     * Формирование orderBundle для 54-ФЗ (фискализация через АТОЛ).
+     * Формирование orderBundle для 54-ФЗ по формату документации Сбера (ФФД 1.05).
      *
      * @param array $order_info Заказ CS-Cart
      * @return array|null
      */
     private function buildOrderBundle($order_info)
     {
+        $total_kopecks = $this->formatAmount($order_info['total']);
         $items = [];
         $pos = 1;
 
         foreach ($order_info['products'] as $product) {
-            $qty   = !empty($product['amount']) ? (int) $product['amount'] : 1;
+            $qty   = !empty($product['amount']) ? (float) $product['amount'] : 1;
             $price = !empty($product['price']) ? (int) round($product['price'] * 100) : 0;
             $name  = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
 
-            // quantity.measure зависит от версии ФФД:
-            // - для 1.05 → "pcs" (строка, Partner API),
-            // - для 1.2  → 0 (число-код, согласно спецификации).
-            if ($this->ffd_version === 'v1_2') {
-                $measure = [
-                    'value'   => $qty,
-                    'measure' => 0,
-                ];
-            } else {
-                $measure = [
-                    'value'   => $qty,
-                    'measure' => 'pcs',
-                ];
-            }
-
-            // itemCode: убираем точки и лишние символы, ограничиваем длину.
             $raw_code = isset($product['product_code']) && $product['product_code'] !== ''
                 ? (string) $product['product_code']
                 : 'P';
             $sanitized_code = preg_replace('/[^0-9A-Za-z_-]/u', '', $raw_code);
-            if ($sanitized_code === '' || $sanitized_code === null) {
+            if ($sanitized_code === '') {
                 $sanitized_code = 'P';
             }
-            $sanitized_code = mb_substr($sanitized_code, 0, 32);
-            // Безопаснее использовать "-" как разделитель позиции.
-            $item_code = $sanitized_code . '-' . $pos;
+            $item_code = mb_substr($sanitized_code, 0, 32) . '-' . $pos;
 
             $items[] = [
-                'positionId' => $pos,
-                'name'       => $name,
-                'quantity'   => $measure,
-                'itemAmount' => $price * $qty,
-                'itemCode'   => $item_code,
-                'itemPrice'  => $price,
-                'tax'        => ['taxType' => $this->tax_type],
-                'itemAttributes' => [
-                    'attributes' => [
-                        [
-                            'name' => 'paymentMethod',
-                            'value' => $this->payment_method_type
-                        ],
-                        [
-                            'name' => 'paymentObject',
-                            'value' => $this->payment_object_type
-                        ]
-                    ]
-                ],
+                'positionId'       => (string) $pos,
+                'itemCode'         => $item_code,
+                'name'             => $name,
+                'quantity'         => ['value' => $qty],
+                'measurementUnit'  => 'шт.',
+                'itemPrice'        => $price,
+                'itemAmount'       => (int) round($price * $qty),
+                'paymentMethod'    => 'full_payment',
+                'paymentObject'    => 'commodity',
+                'tax'              => ['taxType' => $this->tax_type],
             ];
             $pos++;
         }
 
-        // Наценка за оплату
         $surcharge = !empty($order_info['payment_surcharge']) ? (float) $order_info['payment_surcharge'] : 0;
         if ($surcharge > 0) {
-            if ($this->ffd_version === 'v1_2') {
-                $measure = [
-                    'value'   => 1,
-                    'measure' => 0,
-                ];
-            } else {
-                $measure = [
-                    'value'   => 1,
-                    'measure' => 'pcs',
-                ];
-            }
-
+            $sum_k = (int) round($surcharge * 100);
             $items[] = [
-                'positionId' => $pos,
-                'name'       => mb_substr(!empty($order_info['payment_method']['surcharge_title'])
-                    ? $order_info['payment_method']['surcharge_title']
-                    : 'Наценка за оплату', 0, 127),
-                'quantity'   => $measure,
-                'itemAmount' => (int) round($surcharge * 100),
-                'itemCode'   => 'Surcharge.' . $pos,
-                'itemPrice'  => (int) round($surcharge * 100),
-                'tax'        => ['taxType' => $this->tax_type],
-                'itemAttributes' => [
-                    'attributes' => [
-                        [
-                            'name' => 'paymentMethod',
-                            'value' => $this->payment_method_type
-                        ],
-                        [
-                            'name' => 'paymentObject',
-                            'value' => 4
-                        ]
-                    ]
-                ],
+                'positionId'       => (string) $pos,
+                'itemCode'         => 'Surcharge-' . $pos,
+                'name'             => mb_substr(
+                    !empty($order_info['payment_method']['surcharge_title'])
+                        ? $order_info['payment_method']['surcharge_title']
+                        : 'Наценка за оплату',
+                    0,
+                    127
+                ),
+                'quantity'         => ['value' => 1],
+                'measurementUnit'  => 'шт.',
+                'itemPrice'        => $sum_k,
+                'itemAmount'       => $sum_k,
+                'paymentMethod'    => 'full_payment',
+                'paymentObject'    => 'service',
+                'tax'              => ['taxType' => $this->tax_type],
             ];
             $pos++;
         }
 
-        // Доставка
         $shipping = !empty($order_info['shipping_cost']) ? (float) $order_info['shipping_cost'] : 0;
         if ($shipping > 0) {
-            if ($this->ffd_version === 'v1_2') {
-                $measure = [
-                    'value'   => 1,
-                    'measure' => 0,
-                ];
-            } else {
-                $measure = [
-                    'value'   => 1,
-                    'measure' => 'pcs',
-                ];
-            }
-
+            $sum_k = (int) round($shipping * 100);
             $items[] = [
-                'positionId' => $pos,
-                'name'       => 'Доставка',
-                'quantity'   => $measure,
-                'itemAmount' => (int) round($shipping * 100),
-                'itemCode'   => 'Delivery-' . $pos,
-                'itemPrice'  => (int) round($shipping * 100),
-                'tax'        => ['taxType' => $this->tax_type],
-                'itemAttributes' => [
-                    'attributes' => [
-                        [
-                            'name' => 'paymentMethod',
-                            'value' => $this->payment_method_type
-                        ],
-                        [
-                            'name' => 'paymentObject',
-                            'value' => 4
-                        ]
-                    ]
-                ],
+                'positionId'       => (string) $pos,
+                'itemCode'         => 'Delivery-' . $pos,
+                'name'             => 'Услуга доставки',
+                'quantity'         => ['value' => 1],
+                'measurementUnit'  => 'шт.',
+                'itemPrice'        => $sum_k,
+                'itemAmount'       => $sum_k,
+                'paymentMethod'    => 'full_payment',
+                'paymentObject'    => 'service',
+                'tax'              => ['taxType' => $this->tax_type],
             ];
         }
 
-        $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
-
-        // orderCreationDate — дата/время в формате ISO 8601 (yyyy-MM-ddTHH:mm:ss).
-        $created_at = date('Y-m-d\TH:i:s');
-
-        // Внутри orderBundle по спецификации должны быть ffdVersion и receiptType.
         $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
 
         return [
-            'ffdVersion'       => $ffd,
-            'receiptType'      => 'income',
-            'orderCreationDate'=> $created_at,
-            'customerDetails'  => [
-                'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-                'phone' => $phone,
+            'ffdVersion' => $ffd,
+            'receiptType' => 'sell',
+            'company' => [
+                'email'           => $this->company['email'],
+                'sno'             => $this->company['sno'],
+                'inn'             => $this->company['inn'],
+                'paymentAddress'  => $this->company['paymentAddress'],
             ],
+            'payments' => [
+                [
+                    'type' => 1,
+                    'sum'  => $total_kopecks,
+                ],
+            ],
+            'total' => $total_kopecks,
             'cartItems' => ['items' => $items],
         ];
     }
