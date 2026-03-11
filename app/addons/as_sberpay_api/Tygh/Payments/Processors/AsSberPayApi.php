@@ -121,7 +121,6 @@ class AsSberPayApi
             'returnUrl'   => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
             'failUrl'     => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
             'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
-            'features'    => 'FORCE_FULL_TDS',
             'jsonParams'  => [
                 'CMS'             => PRODUCT_NAME . ' ' . PRODUCT_VERSION,
                 'Module-Version'  => '1.0.0',
@@ -133,7 +132,7 @@ class AsSberPayApi
 
         // Телефон и email — топ-уровневые параметры нового API
         if (!empty($order_info['phone'])) {
-            $args['phone'] = '+' . $this->cleanPhone($order_info['phone']);
+            $args['phone'] = $this->cleanPhone($order_info['phone']);
         }
         if (!empty($order_info['email'])) {
             $args['email'] = $order_info['email'];
@@ -363,7 +362,7 @@ class AsSberPayApi
             $name  = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
 
             // quantity.measure зависит от версии ФФД:
-            // - для 1.05 → "шт" (строка),
+            // - для 1.05 → "pcs" (строка, Partner API),
             // - для 1.2  → 0 (число-код, согласно спецификации).
             if ($this->ffd_version === 'v1_2') {
                 $measure = [
@@ -373,7 +372,7 @@ class AsSberPayApi
             } else {
                 $measure = [
                     'value'   => $qty,
-                    'measure' => 'шт',
+                    'measure' => 'pcs',
                 ];
             }
 
@@ -386,7 +385,8 @@ class AsSberPayApi
                 $sanitized_code = 'P';
             }
             $sanitized_code = mb_substr($sanitized_code, 0, 32);
-            $item_code = $sanitized_code . '_' . $pos;
+            // Безопаснее использовать "-" как разделитель позиции.
+            $item_code = $sanitized_code . '-' . $pos;
 
             $items[] = [
                 'positionId' => $pos,
@@ -423,7 +423,7 @@ class AsSberPayApi
             } else {
                 $measure = [
                     'value'   => 1,
-                    'measure' => 'шт',
+                    'measure' => 'pcs',
                 ];
             }
 
@@ -464,7 +464,7 @@ class AsSberPayApi
             } else {
                 $measure = [
                     'value'   => 1,
-                    'measure' => 'шт',
+                    'measure' => 'pcs',
                 ];
             }
 
@@ -473,7 +473,7 @@ class AsSberPayApi
                 'name'       => 'Доставка',
                 'quantity'   => $measure,
                 'itemAmount' => (int) round($shipping * 100),
-                'itemCode'   => 'Delivery.' . $pos,
+                'itemCode'   => 'Delivery-' . $pos,
                 'itemPrice'  => (int) round($shipping * 100),
                 'tax'        => ['taxType' => $this->tax_type],
                 'itemAttributes' => [
