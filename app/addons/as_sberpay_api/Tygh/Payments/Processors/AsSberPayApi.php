@@ -148,11 +148,8 @@ class AsSberPayApi
         if ($this->send_order) {
             $bundle = $this->buildOrderBundle($order_info);
             if ($bundle) {
-                $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
-                $args['taxSystem']    = $this->tax_system;
-                $args['ffdVersion']   = $ffd;
-                $args['receiptType']  = 'income';
-                $args['orderBundle']  = $bundle;
+                $args['taxSystem']   = $this->tax_system;
+                $args['orderBundle'] = $bundle;
             }
         }
 
@@ -363,12 +360,20 @@ class AsSberPayApi
             $price = !empty($product['price']) ? (int) round($product['price'] * 100) : 0;
             $name  = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
 
-            // ФФД 1.05/1.2: единица измерения должна быть кодом ОКЕИ.
-            // 796 — "шт" (пока используем только его).
-            $measure = [
-                'value'   => $qty,
-                'measure' => 796,
-            ];
+            // quantity.measure зависит от версии ФФД:
+            // - для 1.05 → "шт" (строка),
+            // - для 1.2  → 0 (число-код, согласно спецификации).
+            if ($this->ffd_version === 'v1_2') {
+                $measure = [
+                    'value'   => $qty,
+                    'measure' => 0,
+                ];
+            } else {
+                $measure = [
+                    'value'   => $qty,
+                    'measure' => 'шт',
+                ];
+            }
 
             // itemCode: убираем точки и лишние символы, ограничиваем длину.
             $raw_code = isset($product['product_code']) && $product['product_code'] !== ''
@@ -408,10 +413,17 @@ class AsSberPayApi
         // Наценка за оплату
         $surcharge = !empty($order_info['payment_surcharge']) ? (float) $order_info['payment_surcharge'] : 0;
         if ($surcharge > 0) {
-            $measure = [
-                'value'   => 1,
-                'measure' => 796,
-            ];
+            if ($this->ffd_version === 'v1_2') {
+                $measure = [
+                    'value'   => 1,
+                    'measure' => 0,
+                ];
+            } else {
+                $measure = [
+                    'value'   => 1,
+                    'measure' => 'шт',
+                ];
+            }
 
             $items[] = [
                 'positionId' => $pos,
@@ -442,10 +454,17 @@ class AsSberPayApi
         // Доставка
         $shipping = !empty($order_info['shipping_cost']) ? (float) $order_info['shipping_cost'] : 0;
         if ($shipping > 0) {
-            $measure = [
-                'value'   => 1,
-                'measure' => 796,
-            ];
+            if ($this->ffd_version === 'v1_2') {
+                $measure = [
+                    'value'   => 1,
+                    'measure' => 0,
+                ];
+            } else {
+                $measure = [
+                    'value'   => 1,
+                    'measure' => 'шт',
+                ];
+            }
 
             $items[] = [
                 'positionId' => $pos,
@@ -472,12 +491,17 @@ class AsSberPayApi
 
         $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
 
-        // orderCreationDate — Unix time в миллисекундах, не больше текущего времени.
-        $now_ms = (int) floor(microtime(true) * 1000);
+        // orderCreationDate — Unix time в секундах (как в примере API.md).
+        $created_at = time();
+
+        // Внутри orderBundle по спецификации должны быть ffdVersion и receiptType.
+        $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
 
         return [
-            'orderCreationDate' => $now_ms,
-            'customerDetails'   => [
+            'ffdVersion'       => $ffd,
+            'receiptType'      => 'income',
+            'orderCreationDate'=> $created_at,
+            'customerDetails'  => [
                 'email' => !empty($order_info['email']) ? $order_info['email'] : '',
                 'phone' => $phone ? '+' . $phone : '',
             ],
