@@ -432,14 +432,14 @@ class AsSberPayApi
 
         $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
 
-        return [
-            'orderCreationDate' => time(),
-            'customerDetails'   => [
-                'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-                'phone' => $phone ? '+' . $phone : '',
-            ],
-            'cartItems' => ['items' => $items],
-        ];
+            return [
+        'orderCreationDate' => time() * 1000,
+        'customerDetails'   => [
+            'email' => !empty($order_info['email']) ? $order_info['email'] : '',
+            'phone' => $phone ? '+' . $phone : '',
+        ],
+        'cartItems' => ['items' => $items],
+    ];
     }
 
     /**
