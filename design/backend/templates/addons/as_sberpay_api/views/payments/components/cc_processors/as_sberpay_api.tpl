@@ -67,6 +67,30 @@
             <p class="muted description">{__("addons.as_sberpay_api.send_order_hint")}</p>
         </div>
     </div>
+    
+        {* Реквизиты продавца для чека 54-ФЗ (company) *}
+    <div class="control-group">
+    <label for="company_inn_{$payment_id}" class="control-label">{__("addons.as_sberpay_api.company_inn")}</label>
+    <div class="controls">
+        <input type="text" name="payment_data[processor_params][company_inn]" id="company_inn_{$payment_id}"
+            value="{$processor_params.company_inn}" class="input-text-large" size="20" />
+    </div>
+    </div>
+    <div class="control-group">
+    <label for="company_email_{$payment_id}" class="control-label">{__("addons.as_sberpay_api.company_email")}</label>
+    <div class="controls">
+        <input type="text" name="payment_data[processor_params][company_email]" id="company_email_{$payment_id}"
+            value="{$processor_params.company_email}" class="input-text-large" size="60" />
+    </div>
+    </div>
+    <div class="control-group">
+    <label for="company_payment_address_{$payment_id}" class="control-label">{__("addons.as_sberpay_api.company_payment_address")}</label>
+    <div class="controls">
+        <input type="text" name="payment_data[processor_params][company_payment_address]" id="company_payment_address_{$payment_id}"
+            value="{$processor_params.company_payment_address}" class="input-text-large" size="60" />
+        <p class="muted">{__("addons.as_sberpay_api.company_payment_address_hint")}</p>
+    </div>
+    </div>
 
     <div class="control-group">
         <label class="control-label" for="as_sberpay_tax_system">{__("addons.as_sberpay_api.tax_system")}:</label>

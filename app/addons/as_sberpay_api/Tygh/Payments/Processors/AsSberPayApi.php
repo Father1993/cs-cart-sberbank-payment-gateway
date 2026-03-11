@@ -1,4 +1,5 @@
 <?php
+
 /**
  * AS SberPay API — основной класс процессора.
  *
@@ -13,60 +14,97 @@ namespace Tygh\Payments\Processors;
 
 use Tygh\Registry;
 
-if (!defined('BOOTSTRAP')) { die('Access denied'); }
+if (!defined('BOOTSTRAP')) {
+    die('Access denied');
+}
 
 class AsSberPayApi
 {
-    /** URL-ы API */
+    /**
+     * URL-ы API
+     */
     const TEST_URL = 'https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/';
+
     const PROD_URL = 'https://epay.sberbank.ru/ecomm/gw/partner/api/v1/';
 
-    /** @var string Логин API (-api) */
+    /**
+     * @var string Логин API (-api)
+     */
     private $login;
 
-    /** @var string Пароль API */
+    /**
+     * @var string Пароль API
+     */
     private $password;
 
-    /** @var string Базовый URL API */
+    /**
+     * @var string Базовый URL API
+     */
     private $base_url;
 
-    /** @var bool Тестовый режим */
+    /**
+     * @var bool Тестовый режим
+     */
     private $test_mode;
 
-    /** @var bool Логирование */
+    /**
+     * @var bool Логирование
+     */
     private $logging;
 
-    /** @var bool Отправлять корзину (54-ФЗ) */
+    /**
+     * @var bool Отправлять корзину (54-ФЗ)
+     */
     private $send_order;
 
-    /** @var int Система налогообложения */
+    /**
+     * @var int Система налогообложения
+     */
     private $tax_system;
 
-    /** @var int Тип НДС по умолчанию */
+    /**
+     * @var int Тип НДС по умолчанию
+     */
     private $tax_type;
 
-    /** @var string Версия ФФД (v1_05 / v1_2) */
+    /**
+     * @var string Версия ФФД (v1_05 / v1_2)
+     */
     private $ffd_version;
 
-    /** @var int Тип оплаты (paymentMethod) */
+    /**
+     * @var int Тип оплаты (paymentMethod)
+     */
     private $payment_method_type;
 
-    /** @var int Тип предмета расчёта (paymentObject) */
+    /**
+     * @var int Тип предмета расчёта (paymentObject)
+     */
     private $payment_object_type;
 
-    /** @var string Статус заказа при успешной оплате */
+    /**
+     * @var string Статус заказа при успешной оплате
+     */
     private $confirmed_status;
 
-    /** @var bool Двустадийные платежи */
+    /**
+     * @var bool Двустадийные платежи
+     */
     private $two_staging;
 
-    /** @var array Данные компании для чека (company) */
+    /**
+     * @var array Данные компании для чека (company)
+     */
     private $company = [];
 
-    /** @var int Код последней ошибки */
+    /**
+     * @var int Код последней ошибки
+     */
     private $error_code = 0;
 
-    /** @var string Текст последней ошибки */
+    /**
+     * @var string Текст последней ошибки
+     */
     private $error_text = '';
 
     /**
@@ -82,16 +120,16 @@ class AsSberPayApi
             }
         }
 
-        $this->login    = !empty($p['login']) ? $p['login'] : '';
+        $this->login = !empty($p['login']) ? $p['login'] : '';
         $this->password = !empty($p['password']) ? $p['password'] : '';
         $this->test_mode = (!empty($p['mode']) && $p['mode'] === 'live') ? false : true;
-        $this->base_url  = $this->test_mode ? self::TEST_URL : self::PROD_URL;
+        $this->base_url = $this->test_mode ? self::TEST_URL : self::PROD_URL;
 
-        $this->logging  = !empty($p['logging']) && $p['logging'] === 'Y';
+        $this->logging = !empty($p['logging']) && $p['logging'] === 'Y';
         $this->send_order = !empty($p['send_order']) && $p['send_order'] === 'Y';
 
         $this->tax_system = !empty($p['tax_system']) ? (int) $p['tax_system'] : 0;
-        $this->tax_type   = !empty($p['tax_type']) ? (int) $p['tax_type'] : 0;
+        $this->tax_type = !empty($p['tax_type']) ? (int) $p['tax_type'] : 0;
         $this->ffd_version = !empty($p['ffd_version']) ? $p['ffd_version'] : 'v1_05';
         $this->payment_method_type = !empty($p['payment_method_type']) ? (int) $p['payment_method_type'] : 1;
         $this->payment_object_type = !empty($p['payment_object_type']) ? (int) $p['payment_object_type'] : 1;
@@ -100,10 +138,10 @@ class AsSberPayApi
         $this->two_staging = !empty($p['two_staging']) && $p['two_staging'] == '1';
 
         $this->company = [
-            'email'           => isset($p['company_email']) ? (string) $p['company_email'] : '',
-            'sno'             => isset($p['company_sno']) ? (string) $p['company_sno'] : 'osn',
-            'inn'             => isset($p['company_inn']) ? (string) $p['company_inn'] : '',
-            'paymentAddress'  => isset($p['company_payment_address']) ? (string) $p['company_payment_address'] : '',
+            'email' => isset($p['company_email']) ? (string) $p['company_email'] : '',
+            'sno' => isset($p['company_sno']) ? (string) $p['company_sno'] : 'osn',
+            'inn' => isset($p['company_inn']) ? (string) $p['company_inn'] : '',
+            'paymentAddress' => isset($p['company_payment_address']) ? (string) $p['company_payment_address'] : '',
         ];
     }
 
@@ -124,12 +162,12 @@ class AsSberPayApi
         $order_number = $order_id . '_' . substr(md5($order_id . TIME), 0, 3);
 
         $args = [
-            'userName'    => $this->login,
-            'password'    => $this->password,
+            'userName' => $this->login,
+            'password' => $this->password,
             'orderNumber' => $order_number,
-            'amount'      => $this->formatAmount($order_info['total']),
-            'returnUrl'   => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
-            'failUrl'     => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
+            'amount' => $this->formatAmount($order_info['total']),
+            'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
+            'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
             'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
         ];
 
@@ -152,7 +190,7 @@ class AsSberPayApi
         if ($this->send_order) {
             $bundle = $this->buildOrderBundle($order_info);
             if ($bundle) {
-                $args['taxSystem']   = $this->tax_system;
+                $args['taxSystem'] = $this->tax_system;
                 $args['orderBundle'] = $bundle;
             }
         }
@@ -162,7 +200,7 @@ class AsSberPayApi
 
         $this->log([
             'endpoint' => $endpoint,
-            'request'  => array_merge($args, ['password' => '***']),
+            'request' => array_merge($args, ['password' => '***']),
             'response' => $response,
         ], 'register');
 
@@ -180,14 +218,14 @@ class AsSberPayApi
         $args = [
             'userName' => $this->login,
             'password' => $this->password,
-            'orderId'  => $gateway_order_id,
+            'orderId' => $gateway_order_id,
         ];
 
         $response = $this->request('getOrderStatusExtended.do', $args);
 
         $this->log([
             'gateway_order_id' => $gateway_order_id,
-            'response'         => $response,
+            'response' => $response,
         ], 'getOrderStatusExtended');
 
         return $response;
@@ -216,7 +254,7 @@ class AsSberPayApi
         $args = [
             'userName' => $this->login,
             'password' => $this->password,
-            'orderId'  => $gateway_order_id,
+            'orderId' => $gateway_order_id,
         ];
 
         $response = $this->request('reverse.do', $args);
@@ -241,11 +279,30 @@ class AsSberPayApi
     //  Геттеры
     // =========================================================================
 
-    public function isError()            { return !empty($this->error_code); }
-    public function getErrorCode()       { return $this->error_code; }
-    public function getErrorText()       { return $this->error_text; }
-    public function getConfirmedStatus() { return $this->confirmed_status; }
-    public function isLogging()          { return $this->logging; }
+    public function isError()
+    {
+        return !empty($this->error_code);
+    }
+
+    public function getErrorCode()
+    {
+        return $this->error_code;
+    }
+
+    public function getErrorText()
+    {
+        return $this->error_text;
+    }
+
+    public function getConfirmedStatus()
+    {
+        return $this->confirmed_status;
+    }
+
+    public function isLogging()
+    {
+        return $this->logging;
+    }
 
     // =========================================================================
     //  Логирование
@@ -268,8 +325,8 @@ class AsSberPayApi
 
         $file = $dir . 'sberpay_' . date('Y-m') . '.log';
         $entry = 'TIME: ' . date('Y-m-d H:i:s') . " [{$title}]\n"
-               . print_r($data, true) . "\n"
-               . str_repeat('=', 80) . "\n";
+            . print_r($data, true) . "\n"
+            . str_repeat('=', 80) . "\n";
 
         error_log($entry, 3, $file);
     }
@@ -291,13 +348,13 @@ class AsSberPayApi
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
+            CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_TIMEOUT => 30,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS     => json_encode($data),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($data),
         ]);
 
         $raw = curl_exec($ch);
@@ -338,8 +395,8 @@ class AsSberPayApi
         $args = [
             'userName' => $this->login,
             'password' => $this->password,
-            'orderId'  => $gateway_order_id,
-            'amount'   => $amount,
+            'orderId' => $gateway_order_id,
+            'amount' => $amount,
         ];
 
         $response = $this->request($endpoint, $args);
@@ -361,9 +418,9 @@ class AsSberPayApi
         $pos = 1;
 
         foreach ($order_info['products'] as $product) {
-            $qty   = !empty($product['amount']) ? (float) $product['amount'] : 1;
+            $qty = !empty($product['amount']) ? (float) $product['amount'] : 1;
             $price = !empty($product['price']) ? (int) round($product['price'] * 100) : 0;
-            $name  = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
+            $name = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
 
             $raw_code = isset($product['product_code']) && $product['product_code'] !== ''
                 ? (string) $product['product_code']
@@ -375,16 +432,16 @@ class AsSberPayApi
             $item_code = mb_substr($sanitized_code, 0, 32) . '-' . $pos;
 
             $items[] = [
-                'positionId'       => (string) $pos,
-                'itemCode'         => $item_code,
-                'name'             => $name,
-                'quantity'         => ['value' => $qty],
-                'measurementUnit'  => 'шт.',
-                'itemPrice'        => $price,
-                'itemAmount'       => (int) round($price * $qty),
-                'paymentMethod'    => 'full_payment',
-                'paymentObject'    => 'commodity',
-                'tax'              => ['taxType' => $this->tax_type],
+                'positionId' => (string) $pos,
+                'itemCode' => $item_code,
+                'name' => $name,
+                'quantity' => ['value' => $qty],
+                'measurementUnit' => 'шт.',
+                'itemPrice' => $price,
+                'itemAmount' => (int) round($price * $qty),
+                'paymentMethod' => 'full_payment',
+                'paymentObject' => 'commodity',
+                'tax' => ['taxType' => $this->tax_type],
             ];
             $pos++;
         }
@@ -393,22 +450,22 @@ class AsSberPayApi
         if ($surcharge > 0) {
             $sum_k = (int) round($surcharge * 100);
             $items[] = [
-                'positionId'       => (string) $pos,
-                'itemCode'         => 'Surcharge-' . $pos,
-                'name'             => mb_substr(
+                'positionId' => (string) $pos,
+                'itemCode' => 'Surcharge-' . $pos,
+                'name' => mb_substr(
                     !empty($order_info['payment_method']['surcharge_title'])
                         ? $order_info['payment_method']['surcharge_title']
                         : 'Наценка за оплату',
                     0,
                     127
                 ),
-                'quantity'         => ['value' => 1],
-                'measurementUnit'  => 'шт.',
-                'itemPrice'        => $sum_k,
-                'itemAmount'       => $sum_k,
-                'paymentMethod'    => 'full_payment',
-                'paymentObject'    => 'service',
-                'tax'              => ['taxType' => $this->tax_type],
+                'quantity' => ['value' => 1],
+                'measurementUnit' => 'шт.',
+                'itemPrice' => $sum_k,
+                'itemAmount' => $sum_k,
+                'paymentMethod' => 'full_payment',
+                'paymentObject' => 'service',
+                'tax' => ['taxType' => $this->tax_type],
             ];
             $pos++;
         }
@@ -417,16 +474,16 @@ class AsSberPayApi
         if ($shipping > 0) {
             $sum_k = (int) round($shipping * 100);
             $items[] = [
-                'positionId'       => (string) $pos,
-                'itemCode'         => 'Delivery-' . $pos,
-                'name'             => 'Услуга доставки',
-                'quantity'         => ['value' => 1],
-                'measurementUnit'  => 'шт.',
-                'itemPrice'        => $sum_k,
-                'itemAmount'       => $sum_k,
-                'paymentMethod'    => 'full_payment',
-                'paymentObject'    => 'service',
-                'tax'              => ['taxType' => $this->tax_type],
+                'positionId' => (string) $pos,
+                'itemCode' => 'Delivery-' . $pos,
+                'name' => 'Услуга доставки',
+                'quantity' => ['value' => 1],
+                'measurementUnit' => 'шт.',
+                'itemPrice' => $sum_k,
+                'itemAmount' => $sum_k,
+                'paymentMethod' => 'full_payment',
+                'paymentObject' => 'service',
+                'tax' => ['taxType' => $this->tax_type],
             ];
         }
 
@@ -436,15 +493,15 @@ class AsSberPayApi
             'ffdVersion' => $ffd,
             'receiptType' => 'sell',
             'company' => [
-                'email'           => $this->company['email'],
-                'sno'             => $this->company['sno'],
-                'inn'             => $this->company['inn'],
-                'paymentAddress'  => $this->company['paymentAddress'],
+                'email' => $this->company['email'],
+                'sno' => $this->company['sno'],
+                'inn' => $this->company['inn'],
+                'paymentAddress' => $this->company['paymentAddress'],
             ],
             'payments' => [
                 [
                     'type' => 1,
-                    'sum'  => $total_kopecks,
+                    'sum' => $total_kopecks,
                 ],
             ],
             'total' => $total_kopecks,
