@@ -363,16 +363,30 @@ class AsSberPayApi
             $price = !empty($product['price']) ? (int) round($product['price'] * 100) : 0;
             $name  = !empty($product['product']) ? mb_substr(strip_tags($product['product']), 0, 127) : 'Товар';
 
-            $measure = ($this->ffd_version === 'v1_2')
-                ? ['value' => $qty, 'measure' => 0]
-                : ['value' => $qty, 'measure' => 'шт'];
+            // ФФД 1.05/1.2: единица измерения должна быть кодом ОКЕИ.
+            // 796 — "шт" (пока используем только его).
+            $measure = [
+                'value'   => $qty,
+                'measure' => 796,
+            ];
+
+            // itemCode: убираем точки и лишние символы, ограничиваем длину.
+            $raw_code = isset($product['product_code']) && $product['product_code'] !== ''
+                ? (string) $product['product_code']
+                : 'P';
+            $sanitized_code = preg_replace('/[^0-9A-Za-z_-]/u', '', $raw_code);
+            if ($sanitized_code === '' || $sanitized_code === null) {
+                $sanitized_code = 'P';
+            }
+            $sanitized_code = mb_substr($sanitized_code, 0, 32);
+            $item_code = $sanitized_code . '_' . $pos;
 
             $items[] = [
                 'positionId' => $pos,
                 'name'       => $name,
                 'quantity'   => $measure,
                 'itemAmount' => $price * $qty,
-                'itemCode'   => ($product['product_code'] ?? 'P') . '.' . $pos,
+                'itemCode'   => $item_code,
                 'itemPrice'  => $price,
                 'tax'        => ['taxType' => $this->tax_type],
                 'itemAttributes' => [
@@ -394,9 +408,10 @@ class AsSberPayApi
         // Наценка за оплату
         $surcharge = !empty($order_info['payment_surcharge']) ? (float) $order_info['payment_surcharge'] : 0;
         if ($surcharge > 0) {
-            $measure = ($this->ffd_version === 'v1_2')
-                ? ['value' => 1, 'measure' => 0]
-                : ['value' => 1, 'measure' => 'шт'];
+            $measure = [
+                'value'   => 1,
+                'measure' => 796,
+            ];
 
             $items[] = [
                 'positionId' => $pos,
@@ -427,9 +442,10 @@ class AsSberPayApi
         // Доставка
         $shipping = !empty($order_info['shipping_cost']) ? (float) $order_info['shipping_cost'] : 0;
         if ($shipping > 0) {
-            $measure = ($this->ffd_version === 'v1_2')
-                ? ['value' => 1, 'measure' => 0]
-                : ['value' => 1, 'measure' => 'шт'];
+            $measure = [
+                'value'   => 1,
+                'measure' => 796,
+            ];
 
             $items[] = [
                 'positionId' => $pos,
@@ -456,14 +472,17 @@ class AsSberPayApi
 
         $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
 
-            return [
-        'orderCreationDate' => (int) (microtime(true) * 1000),
-        'customerDetails'   => [
-            'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-            'phone' => $phone ? '+' . $phone : '',
-        ],
-        'cartItems' => ['items' => $items],
-    ];
+        // orderCreationDate — Unix time в миллисекундах, не больше текущего времени.
+        $now_ms = (int) floor(microtime(true) * 1000);
+
+        return [
+            'orderCreationDate' => $now_ms,
+            'customerDetails'   => [
+                'email' => !empty($order_info['email']) ? $order_info['email'] : '',
+                'phone' => $phone ? '+' . $phone : '',
+            ],
+            'cartItems' => ['items' => $items],
+        ];
     }
 
     /**
