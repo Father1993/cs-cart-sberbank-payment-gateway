@@ -208,3 +208,23 @@ msgstr "Deposited amount"
 msgctxt "Languages::gateway_refunded"
 msgid "gateway_refunded"
 msgstr "Refunded amount"
+
+msgctxt "Languages::addons.as_sberpay_api.company_inn"
+msgid "Company INN (seller)"
+msgstr "Company INN (seller)"
+
+msgctxt "Languages::addons.as_sberpay_api.company_email"
+msgid "Company email"
+msgstr "Company email"
+
+msgctxt "Languages::addons.as_sberpay_api.company_payment_address"
+msgid "Payment address (URL or legal address)"
+msgstr "Payment address (URL or legal address)"
+
+msgctxt "Languages::addons.as_sberpay_api.company_payment_address_hint"
+msgid "Used in fiscal receipt (54-FZ)"
+msgstr "Used in fiscal receipt (54-FZ)"
+
+msgctxt "Languages::addons.as_sberpay_api.company_sno"
+msgid "Taxation system (SNO) for receipt"
+msgstr "Taxation system (SNO) for receipt"
