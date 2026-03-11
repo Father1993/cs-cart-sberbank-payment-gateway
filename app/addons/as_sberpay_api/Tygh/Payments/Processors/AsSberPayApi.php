@@ -123,9 +123,11 @@ class AsSberPayApi
             'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
             'features'    => 'FORCE_FULL_TDS',
             'jsonParams'  => [
-                'CMS' => PRODUCT_NAME . ' ' . PRODUCT_VERSION,
-                'Module-Version' => '1.0.0',
-                'sberbankOnlineAttributes' => json_encode(['language' => 'ru']),
+                'CMS'             => PRODUCT_NAME . ' ' . PRODUCT_VERSION,
+                'Module-Version'  => '1.0.0',
+                'sberbankOnlineAttributes' => [
+                    'language' => 'ru',
+                ],
             ],
         ];
 
@@ -491,8 +493,8 @@ class AsSberPayApi
 
         $phone = $this->cleanPhone(!empty($order_info['phone']) ? $order_info['phone'] : '');
 
-        // orderCreationDate — Unix time в секундах (как в примере API.md).
-        $created_at = time();
+        // orderCreationDate — дата/время в формате ISO 8601 (yyyy-MM-ddTHH:mm:ss).
+        $created_at = date('Y-m-d\TH:i:s');
 
         // Внутри orderBundle по спецификации должны быть ffdVersion и receiptType.
         $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
@@ -503,7 +505,7 @@ class AsSberPayApi
             'orderCreationDate'=> $created_at,
             'customerDetails'  => [
                 'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-                'phone' => $phone ? '+' . $phone : '',
+                'phone' => $phone,
             ],
             'cartItems' => ['items' => $items],
         ];
