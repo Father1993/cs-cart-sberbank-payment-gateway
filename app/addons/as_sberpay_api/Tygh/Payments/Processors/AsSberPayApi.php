@@ -160,38 +160,47 @@ class AsSberPayApi
     {
         $order_id = $order_info['order_id'];
         $order_number = $order_id . '_' . substr(md5($order_id . TIME), 0, 3);
+        $amount = $this->formatAmount($order_info['total']);
+        $bundle = null;
 
-        $args = [
-            'userName' => $this->login,
-            'password' => $this->password,
-            'orderNumber' => $order_number,
-            'amount' => $this->formatAmount($order_info['total']),
-            'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
-            'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
-            'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
-        ];
-
-        // Телефон и email — топ-уровневые параметры нового API
-        if (!empty($order_info['phone'])) {
-            $args['phone'] = $this->cleanPhone($order_info['phone']);
-        }
-        if (!empty($order_info['email'])) {
-            $args['email'] = $order_info['email'];
-        }
-
-        // clientId для повторных оплат
-        if (!empty($order_info['user_id'])) {
-            $email = !empty($order_info['email']) ? $order_info['email'] : '';
-            $site = parse_url(fn_url(''), PHP_URL_HOST);
-            $args['clientId'] = md5($order_info['user_id'] . $email . $site);
-        }
-
-        // Корзина для фискализации (54-ФЗ → АТОЛ)
+        // При фискализации (orderBundle) — минимальный набор полей как в эталоне документации.
         if ($this->send_order) {
             $bundle = $this->buildOrderBundle($order_info);
-            if ($bundle) {
-                $args['taxSystem'] = $this->tax_system;
-                $args['orderBundle'] = $bundle;
+            if (!$bundle) {
+                $this->send_order = false;
+            }
+        }
+
+        if ($this->send_order && !empty($bundle)) {
+            $args = [
+                'userName' => $this->login,
+                'password' => $this->password,
+                'orderNumber' => $order_number,
+                'amount' => $amount,
+                'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
+                'email' => !empty($order_info['email']) ? $order_info['email'] : '',
+                'orderBundle' => $bundle,
+            ];
+        } else {
+            $args = [
+                'userName' => $this->login,
+                'password' => $this->password,
+                'orderNumber' => $order_number,
+                'amount' => $amount,
+                'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
+                'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
+                'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
+            ];
+            if (!empty($order_info['phone'])) {
+                $args['phone'] = $this->cleanPhone($order_info['phone']);
+            }
+            if (!empty($order_info['email'])) {
+                $args['email'] = $order_info['email'];
+            }
+            if (!empty($order_info['user_id'])) {
+                $email = !empty($order_info['email']) ? $order_info['email'] : '';
+                $site = parse_url(fn_url(''), PHP_URL_HOST);
+                $args['clientId'] = md5($order_info['user_id'] . $email . $site);
             }
         }
 
@@ -490,7 +499,7 @@ class AsSberPayApi
         $ffd = ($this->ffd_version === 'v1_2') ? '1.2' : '1.05';
 
         return [
-            'ffdVersion' => $ffd,
+            'ffdVersion' => (string) $ffd,
             'receiptType' => 'sell',
             'company' => [
                 'email' => $this->company['email'],
