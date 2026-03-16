@@ -129,7 +129,7 @@ class AsSberPayApi
         $this->send_order = !empty($p['send_order']) && $p['send_order'] === 'Y';
 
         $this->tax_system = !empty($p['tax_system']) ? (int) $p['tax_system'] : 0;
-        $this->tax_type = !empty($p['tax_type']) ? (int) $p['tax_type'] : 0;
+        $this->tax_type = isset($p['tax_type']) && $p['tax_type'] !== '' ? (int) $p['tax_type'] : 7;
         $this->ffd_version = !empty($p['ffd_version']) ? $p['ffd_version'] : 'v1_05';
         $this->payment_method_type = !empty($p['payment_method_type']) ? (int) $p['payment_method_type'] : 1;
         $this->payment_object_type = !empty($p['payment_object_type']) ? (int) $p['payment_object_type'] : 1;

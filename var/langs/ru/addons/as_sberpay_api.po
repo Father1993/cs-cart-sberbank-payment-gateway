@@ -113,6 +113,14 @@ msgctxt "Languages::addons.as_sberpay_api.vat_7"
 msgid "VAT 7%"
 msgstr "НДС 7%"
 
+msgctxt "Languages::addons.as_sberpay_api.vat_22"
+msgid "VAT 22%"
+msgstr "НДС 22%"
+
+msgctxt "Languages::addons.as_sberpay_api.vat_122"
+msgid "VAT 22/122"
+msgstr "НДС 22/122"
+
 msgctxt "Languages::addons.as_sberpay_api.ffd_version"
 msgid "FFD version"
 msgstr "Версия ФФД"
