@@ -116,6 +116,8 @@
                 <option value="6" {if $processor_params.tax_type == 6}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_20")}</option>
                 <option value="10" {if $processor_params.tax_type == 10}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_5")}</option>
                 <option value="12" {if $processor_params.tax_type == 12}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_7")}</option>
+                <option value="7" {if $processor_params.tax_type == 7}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_22")}</option>
+                <option value="9" {if $processor_params.tax_type == 9}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_122")}</option>
             </select>
         </div>
     </div>
