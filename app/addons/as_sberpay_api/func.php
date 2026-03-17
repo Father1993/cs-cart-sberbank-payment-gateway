@@ -33,23 +33,14 @@ function fn_as_sberpay_api_uninstall()
 /**
  * Хук: отправляет закрывающий чек (doReceipt) при переводе оплаченного заказа в «Выполнен».
  *
- * @param string $status_to           Новый статус
- * @param string $status_from         Предыдущий статус
- * @param array  $order_info          Данные заказа
- * @param array  $force_notification  Форс-уведомления
- * @param array  $order_statuses      Справочник статусов с параметрами
- * @param bool   $place_order         Флаг размещения заказа
+ * Сигнатура хука CS-Cart 4.18 (fn.cart.php):
+ * change_order_status_post($order_id, $status_to, $status_from, $force_notification, $place_order, $order_info, $edp_data)
  */
 function fn_as_sberpay_api_change_order_status_post(
-    $status_to, $status_from, $order_info,
-    $force_notification, $order_statuses, $place_order
+    $order_id, $status_to, $status_from,
+    $force_notification, $place_order, $order_info, $edp_data
 ) {
     if ($status_to !== 'C') {
-        return;
-    }
-
-    $prev = $order_statuses[$status_from]['params'] ?? [];
-    if (empty($prev['payment_received']) || $prev['payment_received'] !== 'Y') {
         return;
     }
 
