@@ -236,3 +236,27 @@ msgstr "Указывается в фискальном чеке (54-ФЗ)"
 msgctxt "Languages::addons.as_sberpay_api.company_sno"
 msgid "Taxation system (SNO) for receipt"
 msgstr "Система налогообложения (СНО) для чека"
+
+msgctxt "Languages::addons.as_sberpay_api.payment_method"
+msgid "Payment method type (paymentMethod)"
+msgstr "Признак способа расчёта (paymentMethod)"
+
+msgctxt "Languages::addons.as_sberpay_api.payment_method_hint"
+msgid "For online prepayment stores use Full prepayment. For post-payment use Full payment."
+msgstr "Для интернет-магазинов с онлайн-оплатой — Полная предоплата. При оплате после получения — Полный расчёт."
+
+msgctxt "Languages::addons.as_sberpay_api.pm_full_prepayment"
+msgid "Full prepayment"
+msgstr "Полная предоплата"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_prepayment"
+msgid "Partial prepayment"
+msgstr "Частичная предоплата"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_advance"
+msgid "Advance"
+msgstr "Аванс"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_full_payment"
+msgid "Full payment"
+msgstr "Полный расчёт"
