@@ -307,6 +307,45 @@ class AsSberPayApi
     }
 
     /**
+     * Закрывающий чек (doReceipt.do) — полный расчёт после выдачи товара.
+     *
+     * @param array $order_info Заказ CS-Cart
+     * @return array Ответ API
+     */
+    public function doReceipt($order_info)
+    {
+        if (!$this->send_order) {
+            return [];
+        }
+
+        $gateway_order_id = $order_info['payment_info']['transaction_id'] ?? '';
+        if (!$gateway_order_id) {
+            return [];
+        }
+
+        $bundle = $this->buildOrderBundle($order_info, self::PM_FULL_PAYMENT);
+        if (!$bundle) {
+            return [];
+        }
+
+        $args = [
+            'userName'    => $this->login,
+            'password'    => $this->password,
+            'orderId'     => $gateway_order_id,
+            'orderBundle' => $bundle,
+        ];
+
+        if (!empty($order_info['email'])) {
+            $args['email'] = $order_info['email'];
+        }
+
+        $response = $this->request('doReceipt.do', $args);
+        $this->log(['order_id' => $order_info['order_id'], 'response' => $response], 'doReceipt');
+
+        return $response;
+    }
+
+    /**
      * Завершение платежа (deposit.do) — для двустадийных.
      *
      * @param string $gateway_order_id ID заказа в Сбере
@@ -454,8 +493,9 @@ class AsSberPayApi
      * @param array $order_info Заказ CS-Cart
      * @return array|null
      */
-    private function buildOrderBundle($order_info)
+    private function buildOrderBundle($order_info, $payment_method = null)
     {
+        $pm = $payment_method ?? $this->payment_method;
         $total_kopecks = $this->formatAmount($order_info['total']);
         $items = [];
         $pos = 1;
@@ -482,7 +522,7 @@ class AsSberPayApi
                 'measurementUnit' => 'шт.',
                 'itemPrice' => $price,
                 'itemAmount' => (int) round($price * $qty),
-                'paymentMethod' => $this->payment_method,
+                'paymentMethod' => $pm,
                 'paymentObject' => self::PO_COMMODITY,
                 'tax' => ['taxType' => $this->tax_type],
             ];
@@ -506,7 +546,7 @@ class AsSberPayApi
                 'measurementUnit' => 'шт.',
                 'itemPrice' => $sum_k,
                 'itemAmount' => $sum_k,
-                'paymentMethod' => $this->payment_method,
+                'paymentMethod' => $pm,
                 'paymentObject' => self::PO_SERVICE,
                 'tax' => ['taxType' => $this->tax_type],
             ];
@@ -524,7 +564,7 @@ class AsSberPayApi
                 'measurementUnit' => 'шт.',
                 'itemPrice' => $sum_k,
                 'itemAmount' => $sum_k,
-                'paymentMethod' => $this->payment_method,
+                'paymentMethod' => $pm,
                 'paymentObject' => self::PO_SERVICE,
                 'tax' => ['taxType' => $this->tax_type],
             ];
@@ -534,7 +574,7 @@ class AsSberPayApi
 
         return [
             'ffdVersion' => (string) $ffd,
-            'receiptType' => 'sell',
+            'receiptType' => 'SELL',
             'company' => [
                 'email' => $this->company['email'],
                 'sno' => $this->company['sno'],

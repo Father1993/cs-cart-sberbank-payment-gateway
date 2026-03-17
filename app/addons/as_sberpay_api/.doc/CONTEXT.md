@@ -4,11 +4,11 @@
 
 ---
 
-## Текущее состояние модуля (2026-03-04)
+## Текущее состояние модуля (2026-03-16)
 
-### Статус: В тестировании на dev-контуре
+### Статус: Фискализация реализована полностью
 
-Модуль переведён на новый партнёрский API Сбербанка. Регистрация заказа (`register.do`) работает корректно. Обработчик RETURN исправлен (итерация 5) — ожидает тестирования. Callback (`dynamicCallbackUrl`) на локальном контуре недоступен (домен `uroven.local`), на проде будет работать.
+Модуль переведён на новый партнёрский API Сбербанка. Регистрация заказа (`register.do`) и фискализация работают. Реализован закрывающий чек `doReceipt.do` — автоматически отправляется при переводе оплаченного заказа в статус «Выполнен» (C). Callback (`dynamicCallbackUrl`) на локальном контуре недоступен (домен `uroven.local`), на проде работает.
 
 ---
 
@@ -39,17 +39,19 @@
 app/addons/as_sberpay_api/
 ├── Tygh/Payments/Processors/AsSberPayApi.php   ← ЯДРО (класс API)
 ├── payments/as_sberpay_api.php                 ← Payment script (callback/return/register)
-├── func.php                                    ← Install/uninstall + хук get_payment_processors
-├── init.php                                    ← Регистрация хука
+├── func.php                                    ← Install/uninstall + хуки
+├── init.php                                    ← Регистрация хуков
 ├── addon.xml                                   ← Манифест
 ├── config.php                                  ← Пустой (обязателен для CS-Cart)
 └── .doc/
-    ├── CONTEXT.md          ← ЭТОТ ФАЙЛ
-    ├── sber-docs.md        ← Полная документация API (источник истины)
-    ├── API.md              ← Краткий справочник методов
-    ├── FLOW.md             ← Потоки оплаты (диаграммы)
-    ├── README.md           ← Архитектура и установка
-    └── SETTINGS.md         ← Настройки в админке
+    ├── CONTEXT.md              ← ЭТОТ ФАЙЛ
+    ├── README.md               ← Архитектура и установка
+    ├── sber-docs.md            ← Полная документация API Сбера
+    ├── register-do-docs.md     ← Документация register.do от Сбера (не редактировать)
+    ├── doReceipt.md            ← Документация doReceipt от Сбера (не редактировать)
+    ├── API.md                  ← Краткий справочник методов
+    ├── FLOW.md                 ← Потоки оплаты (диаграммы)
+    └── SETTINGS.md             ← Настройки в админке
 ```
 
 ---
@@ -126,6 +128,36 @@ app/addons/as_sberpay_api/
 |----------|------------|---------------|
 | `orderId` в returnUrl | Гарантированно добавляется | Не гарантирован |
 
+### Итерация 7 — Исправление taxType + константы (2026-03-16)
+
+**Причина**: Коды `taxType` в шаблоне и PHP были неверными (5% было `10`, 7% было `12`).
+Источник истины — официальная документация `register-do-docs.md`.
+
+**Изменения**:
+1. Добавлены PHP-константы `TAX_*` для всех кодов taxType (0–13)
+2. Добавлены PHP-константы `PM_*` для всех значений paymentMethod (строки)
+3. Добавлены PHP-константы `PO_*` для ключевых значений paymentObject (строки)
+4. Исправлены `value` атрибуты в dropdown `tax_type` шаблона (5%→8, 7%→10, 22%→12, 22/122→13)
+5. Добавлен dropdown `payment_method` в шаблон настроек (по умолчанию `full_prepayment`)
+6. Удалены мёртвые свойства `$payment_method_type` и `$payment_object_type` (были объявлены, но нигде не использовались — хардкод в `buildOrderBundle`)
+7. Исправлен дефолт `tax_type` → `self::TAX_22` (код 12)
+8. Исправлен `receiptType` с `'sell'` → `'SELL'` (по документации)
+
+### Итерация 8 — Закрывающий чек doReceipt (2026-03-16)
+
+**Задача**: При переводе оплаченного заказа в статус «Выполнен» (C) автоматически отправлять закрывающий чек в Сбербанк.
+
+**Изменения**:
+
+1. **`AsSberPayApi.php`**: добавлен метод `doReceipt($order_info)` — строит `orderBundle` с `paymentMethod=full_payment` и отправляет на `doReceipt.do`
+2. **`AsSberPayApi.php`**: `buildOrderBundle()` теперь принимает `$payment_method = null` для override; `$pm = $payment_method ?? $this->payment_method`
+3. **`init.php`**: зарегистрирован хук `change_order_status_post`
+4. **`func.php`**: добавлен обработчик `fn_as_sberpay_api_change_order_status_post` с 4 guard-условиями:
+   - `$status_to === 'C'`
+   - предыдущий статус имеет `payment_received = Y`
+   - есть `payment_info['transaction_id']`
+   - процессор = `as_sberpay_api.php`
+
 ### Итерация 6 — Исправление orderCreationDate для фискализации (2026-03-11)
 
 **Диагноз**: При включенном чекбоксе "Отправлять корзину на шлюз" (фискализация 54-ФЗ)
@@ -161,7 +193,7 @@ app/addons/as_sberpay_api/
 
 ```json
 {
-  "userName": "sbertest_2221",
+  "userName": "P272606974206",
   "password": "...",
   "orderNumber": "40_6e8",
   "amount": 30500,
@@ -176,13 +208,34 @@ app/addons/as_sberpay_api/
   "phone": "+79098763797",
   "email": "user@example.ru",
   "clientId": "md5hash",
-  "taxSystem": 0,
-  "ffdVersion": "1.05",
-  "receiptType": "income",
   "orderBundle": {
-    "orderCreationDate": 1772000473,
-    "customerDetails": {"email": "...", "phone": "+79..."},
-    "cartItems": {"items": [...]}
+    "ffdVersion": "1.05",
+    "receiptType": "SELL",
+    "orderCreationDate": 1772000473000,
+    "company": {
+      "email": "shop@site.ru",
+      "sno": "osn",
+      "inn": "1234567890",
+      "paymentAddress": "https://site.ru"
+    },
+    "payments": [{"type": 1, "sum": 30500}],
+    "total": 30500,
+    "cartItems": {
+      "items": [
+        {
+          "positionId": "1",
+          "itemCode": "SKU001-1",
+          "name": "Товар",
+          "quantity": {"value": 1},
+          "measurementUnit": "шт.",
+          "itemPrice": 30500,
+          "itemAmount": 30500,
+          "paymentMethod": "full_prepayment",
+          "paymentObject": "commodity",
+          "tax": {"taxType": 12}
+        }
+      ]
+    }
   }
 }
 ```
@@ -199,20 +252,14 @@ app/addons/as_sberpay_api/
 
 Должен быть в миллисекундах: `time() * 1000`.
 
-### 3. Фискализация на боевом аккаунте — ГОТОВО К ТЕСТИРОВАНИЮ
+### 3. Фискализация — реализована, ожидает тестирования закрывающего чека
 
-После исправления `orderCreationDate` модуль готов к тестированию фискализации
-на боевом аккаунте `P272606974206` с подключенным АТОЛ.
+**Чек-лист тестирования закрывающего чека:**
 
-**Чек-лист тестирования фискализации:**
-
-- [ ] Включить чекбокс "Отправлять корзину на шлюз"
-- [ ] Провести тестовый платеж
-- [ ] Проверить что `errorCode: 0` (без ошибок)
-- [ ] Проверить формирование чека в ЛК АТОЛ
-- [ ] Проверить отправку чека на email клиента
-- [ ] Провести частичный возврат через модуль
-- [ ] Провести полный возврат через модуль
+- [ ] Оплатить заказ → проверить первый чек (full_prepayment)
+- [ ] Перевести заказ в статус C (Выполнен)
+- [ ] Убедиться что в логах появился `[doReceipt]` с `errorCode: 0`
+- [ ] Проверить закрывающий чек (full_payment) в ЛК АТОЛ
 
 ### 4. Возвраты через `refund.do` — не тестировались
 
@@ -245,12 +292,14 @@ app/addons/as_sberpay_api/
 
 - Регистрация заказа (`register.do` / `registerPreAuth.do`)
 - Callback (серверное уведомление от Сбера) с идемпотентностью
-- Return (клиентский редирект после оплаты) — исправлен в итерации 5
+- Return (клиентский редирект после оплаты)
 - Проверка статуса (`getOrderStatusExtended.do`)
 - Маппинг orderStatus → CS-Cart статус
+- Фискализация (54-ФЗ): `orderBundle` с корректными кодами taxType, PM/PO константы
+- Закрывающий чек `doReceipt.do` — при переводе заказа в «Выполнен» (C)
 - Маскировка пароля в логах
-- Логирование в `var/logs/as_sberpay_api/` (включая `$_REQUEST` при return)
-- `refund.do`, `reverse.do`, `deposit.do` — реализованы
+- Логирование в `var/logs/as_sberpay_api/`
+- `refund.do`, `reverse.do`, `deposit.do` — реализованы (не тестировались)
 
 ---
 
@@ -272,9 +321,12 @@ app/addons/as_sberpay_api/
 
 ## Быстрый старт для нового AI-агента
 
-1. **Источник истины по API**: `sber-docs.md` — читать обязательно
-2. **Ядро модуля**: `AsSberPayApi.php` — класс, все методы API там
+1. **Источник истины по API**: `register-do-docs.md` и `doReceipt.md` — документация от Сбера
+2. **Ядро модуля**: `AsSberPayApi.php` — все методы и константы
 3. **Payment script**: `payments/as_sberpay_api.php` — callback/return/register логика
-4. **Не трогать**: `func.php`, `init.php`, `addon.xml` — установка/хуки, всё корректно
-5. **Тестовые креды**: `sbertest_2221` / `Sbertest2026123456` / среда `ecomtest.sberbank.ru`
-6. **Главное правило**: всё `application/json`, все вложенные поля — нативные PHP-массивы
+4. **Хуки**: `func.php` + `init.php` — установка, `change_order_status_post` → `doReceipt`
+5. **Боевые креды**: `P272606974206` — с подключённым АТОЛ (для фискализации)
+6. **Главное правило**: всё `application/json`, нативные PHP-массивы
+7. **taxType**: коды 0,1,2,4,6,7,8,9,10,11,12,13 — константы `TAX_*` в классе
+8. **paymentMethod**: строки (не числа!) — константы `PM_*` в классе
+9. **paymentObject**: строки (не числа!) — константы `PO_*` в классе

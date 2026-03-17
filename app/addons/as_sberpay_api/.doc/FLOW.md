@@ -150,24 +150,62 @@ fn_update_order_payment_info()
 
 ---
 
-## 6. Цепочка фискализации
+## 6. Цепочка фискализации (первый чек — предоплата)
 
 ```
 [CS-Cart]
   orderBundle (JSON)
+  paymentMethod = full_prepayment
   в параметрах register.do
          │
          ▼
 [Сбербанк] → принимает orderBundle
          │
          ▼
-[АТОЛ Онлайн] → формирует чек
+[АТОЛ Онлайн] → формирует чек (предоплата)
          │
          ▼
 [ФНС] → чек зарегистрирован
 
 CS-Cart НЕ взаимодействует с АТОЛ напрямую!
 Вся фискализация через Сбер.
+```
+
+---
+
+## 7. Закрывающий чек (doReceipt — при выдаче товара)
+
+```
+Админ переводит заказ в статус C (Выполнен)
+         │
+         ▼
+CS-Cart: fn_change_order_status()
+         │
+         ▼
+hook: change_order_status_post
+         │
+         ▼
+fn_as_sberpay_api_change_order_status_post()
+
+Guard-проверки:
+  1. status_to === 'C'?               → нет: exit
+  2. status_from.payment_received=Y?  → нет: exit
+  3. payment_info.transaction_id?     → нет: exit
+  4. processor = as_sberpay_api.php?  → нет: exit
+         │
+         ▼
+AsSberPayApi::doReceipt($order_info)
+  buildOrderBundle($order_info, PM_FULL_PAYMENT)
+  POST doReceipt.do
+         │
+         ▼
+[Сбербанк] → принимает orderBundle
+         │
+         ▼
+[АТОЛ Онлайн] → формирует закрывающий чек (full_payment)
+         │
+         ▼
+[ФНС] → чек зарегистрирован
 ```
 
 ---
