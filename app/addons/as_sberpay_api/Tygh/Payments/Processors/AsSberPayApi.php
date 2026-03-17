@@ -27,6 +27,10 @@ class AsSberPayApi
 
     const PROD_URL = 'https://epay.sberbank.ru/ecomm/gw/partner/api/v1/';
 
+    const TEST_OFD_URL = 'https://ecomtest.sberbank.ru/ecomm/gw/partner/api/ofd/v1/';
+
+    const PROD_OFD_URL = 'https://epay.sberbank.ru/ecomm/gw/partner/api/ofd/v1/';
+
     /**
      * paymentMethod (Тэг ФФД 1214) — признак способа расчёта
      */
@@ -357,7 +361,8 @@ class AsSberPayApi
             'request' => array_merge($args, ['password' => '***']),
         ], 'doReceipt: request');
 
-        $response = $this->request('doReceipt.do', $args);
+        $ofd_base_url = $this->test_mode ? self::TEST_OFD_URL : self::PROD_OFD_URL;
+        $response = $this->request('doReceipt', $args, $ofd_base_url);
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
 
         return $response;
@@ -438,13 +443,14 @@ class AsSberPayApi
     /**
      * HTTP POST запрос к API Сбера (application/json).
      *
-     * @param string $endpoint Метод API (register.do и т.д.)
-     * @param array  $data     Параметры запроса
+     * @param string      $endpoint Метод API (register.do, doReceipt и т.д.)
+     * @param array       $data     Параметры запроса
+     * @param string|null $base_url Базовый URL, если нужен отличный от платёжного API
      * @return array Ответ (декодированный JSON)
      */
-    private function request($endpoint, $data)
+    private function request($endpoint, $data, $base_url = null)
     {
-        $url = $this->base_url . $endpoint;
+        $url = ($base_url ?: $this->base_url) . $endpoint;
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
