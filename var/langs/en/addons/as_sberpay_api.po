@@ -236,3 +236,27 @@ msgstr "Used in fiscal receipt (54-FZ)"
 msgctxt "Languages::addons.as_sberpay_api.company_sno"
 msgid "Taxation system (SNO) for receipt"
 msgstr "Taxation system (SNO) for receipt"
+
+msgctxt "Languages::addons.as_sberpay_api.payment_method"
+msgid "Payment method type (paymentMethod)"
+msgstr "Payment method type (paymentMethod)"
+
+msgctxt "Languages::addons.as_sberpay_api.payment_method_hint"
+msgid "For online prepayment stores use Full prepayment. For post-payment use Full payment."
+msgstr "For online prepayment stores use Full prepayment. For post-payment use Full payment."
+
+msgctxt "Languages::addons.as_sberpay_api.pm_full_prepayment"
+msgid "Full prepayment"
+msgstr "Full prepayment"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_prepayment"
+msgid "Partial prepayment"
+msgstr "Partial prepayment"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_advance"
+msgid "Advance"
+msgstr "Advance"
+
+msgctxt "Languages::addons.as_sberpay_api.pm_full_payment"
+msgid "Full payment"
+msgstr "Full payment"

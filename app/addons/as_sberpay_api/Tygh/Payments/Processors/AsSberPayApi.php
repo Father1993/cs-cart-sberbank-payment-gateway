@@ -28,7 +28,47 @@ class AsSberPayApi
     const PROD_URL = 'https://epay.sberbank.ru/ecomm/gw/partner/api/v1/';
 
     /**
-     * @var string Логин API (-api)
+     * paymentMethod (Тэг ФФД 1214) — признак способа расчёта
+     */
+    const PM_FULL_PREPAYMENT = 'full_prepayment';
+
+    const PM_PREPAYMENT = 'prepayment';
+    const PM_ADVANCE = 'advance';
+    const PM_FULL_PAYMENT = 'full_payment';
+    const PM_PARTIAL_PAYMENT = 'partial_payment';
+    const PM_CREDIT = 'credit';
+    const PM_CREDIT_PAYMENT = 'credit_payment';
+
+    /**
+     * paymentObject (Тэг ФФД 1212) — признак предмета расчёта
+     */
+    const PO_COMMODITY = 'commodity';
+
+    const PO_EXCISE = 'excise';
+    const PO_JOB = 'job';
+    const PO_SERVICE = 'service';
+    const PO_PAYMENT = 'payment';
+    const PO_ANOTHER = 'another';
+
+    /**
+     * Коды taxType (Тэг ФФД 1199) согласно документации register.do
+     */
+    const TAX_NONE = 0;
+
+    const TAX_0 = 1;
+    const TAX_10 = 2;
+    const TAX_10_110 = 4;
+    const TAX_20 = 6;
+    const TAX_20_120 = 7;
+    const TAX_5 = 8;
+    const TAX_5_105 = 9;
+    const TAX_7 = 10;
+    const TAX_7_107 = 11;
+    const TAX_22 = 12;
+    const TAX_22_122 = 13;
+
+    /**
+     * @var string Логин API
      */
     private $login;
 
@@ -73,14 +113,9 @@ class AsSberPayApi
     private $ffd_version;
 
     /**
-     * @var int Тип оплаты (paymentMethod)
+     * @var string Признак способа расчёта (paymentMethod, Тег ФФД 1214)
      */
-    private $payment_method_type;
-
-    /**
-     * @var int Тип предмета расчёта (paymentObject)
-     */
-    private $payment_object_type;
+    private $payment_method;
 
     /**
      * @var string Статус заказа при успешной оплате
@@ -129,10 +164,9 @@ class AsSberPayApi
         $this->send_order = !empty($p['send_order']) && $p['send_order'] === 'Y';
 
         $this->tax_system = !empty($p['tax_system']) ? (int) $p['tax_system'] : 0;
-        $this->tax_type = isset($p['tax_type']) && $p['tax_type'] !== '' ? (int) $p['tax_type'] : 7;
+        $this->tax_type = isset($p['tax_type']) && $p['tax_type'] !== '' ? (int) $p['tax_type'] : self::TAX_22;
         $this->ffd_version = !empty($p['ffd_version']) ? $p['ffd_version'] : 'v1_05';
-        $this->payment_method_type = !empty($p['payment_method_type']) ? (int) $p['payment_method_type'] : 1;
-        $this->payment_object_type = !empty($p['payment_object_type']) ? (int) $p['payment_object_type'] : 1;
+        $this->payment_method = !empty($p['payment_method']) ? $p['payment_method'] : self::PM_FULL_PREPAYMENT;
 
         $this->confirmed_status = !empty($p['confirmed_order_status']) ? $p['confirmed_order_status'] : 'P';
         $this->two_staging = !empty($p['two_staging']) && $p['two_staging'] == '1';
@@ -448,8 +482,8 @@ class AsSberPayApi
                 'measurementUnit' => 'шт.',
                 'itemPrice' => $price,
                 'itemAmount' => (int) round($price * $qty),
-                'paymentMethod' => 'full_payment',
-                'paymentObject' => 'commodity',
+                'paymentMethod' => $this->payment_method,
+                'paymentObject' => self::PO_COMMODITY,
                 'tax' => ['taxType' => $this->tax_type],
             ];
             $pos++;
@@ -472,8 +506,8 @@ class AsSberPayApi
                 'measurementUnit' => 'шт.',
                 'itemPrice' => $sum_k,
                 'itemAmount' => $sum_k,
-                'paymentMethod' => 'full_payment',
-                'paymentObject' => 'service',
+                'paymentMethod' => $this->payment_method,
+                'paymentObject' => self::PO_SERVICE,
                 'tax' => ['taxType' => $this->tax_type],
             ];
             $pos++;
@@ -490,8 +524,8 @@ class AsSberPayApi
                 'measurementUnit' => 'шт.',
                 'itemPrice' => $sum_k,
                 'itemAmount' => $sum_k,
-                'paymentMethod' => 'full_payment',
-                'paymentObject' => 'service',
+                'paymentMethod' => $this->payment_method,
+                'paymentObject' => self::PO_SERVICE,
                 'tax' => ['taxType' => $this->tax_type],
             ];
         }

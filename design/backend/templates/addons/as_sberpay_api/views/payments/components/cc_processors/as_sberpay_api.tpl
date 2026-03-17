@@ -106,18 +106,19 @@
         </div>
     </div>
 
+    {assign var="cur_vat" value=($processor_params.tax_type !== '' && $processor_params.tax_type !== null) ? $processor_params.tax_type : 12}
     <div class="control-group">
         <label class="control-label" for="as_sberpay_tax_type">{__("addons.as_sberpay_api.tax_type")}:</label>
         <div class="controls">
             <select name="payment_data[processor_params][tax_type]" id="as_sberpay_tax_type">
-                <option value="0" {if $processor_params.tax_type == 0}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_none")}</option>
-                <option value="1" {if $processor_params.tax_type == 1}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_0")}</option>
-                <option value="2" {if $processor_params.tax_type == 2}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_10")}</option>
-                <option value="6" {if $processor_params.tax_type == 6}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_20")}</option>
-                <option value="10" {if $processor_params.tax_type == 10}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_5")}</option>
-                <option value="12" {if $processor_params.tax_type == 12}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_7")}</option>
-                <option value="7" {if $processor_params.tax_type == 7}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_22")}</option>
-                <option value="9" {if $processor_params.tax_type == 9}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_122")}</option>
+                <option value="0"  {if $cur_vat == 0} selected="selected"{/if}>{__("addons.as_sberpay_api.vat_none")}</option>
+                <option value="1"  {if $cur_vat == 1} selected="selected"{/if}>{__("addons.as_sberpay_api.vat_0")}</option>
+                <option value="2"  {if $cur_vat == 2} selected="selected"{/if}>{__("addons.as_sberpay_api.vat_10")}</option>
+                <option value="6"  {if $cur_vat == 6} selected="selected"{/if}>{__("addons.as_sberpay_api.vat_20")}</option>
+                <option value="8"  {if $cur_vat == 8} selected="selected"{/if}>{__("addons.as_sberpay_api.vat_5")}</option>
+                <option value="10" {if $cur_vat == 10}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_7")}</option>
+                <option value="12" {if $cur_vat == 12}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_22")}</option>
+                <option value="13" {if $cur_vat == 13}selected="selected"{/if}>{__("addons.as_sberpay_api.vat_122")}</option>
             </select>
         </div>
     </div>
@@ -132,36 +133,17 @@
         </div>
     </div>
 
+    {assign var="cur_pm" value=$processor_params.payment_method|default:"full_prepayment"}
     <div class="control-group">
-        <label class="control-label" for="as_sberpay_payment_method">{__("addons.as_sberpay_api.payment_method_type")}:</label>
+        <label class="control-label" for="as_sberpay_pm">{__("addons.as_sberpay_api.payment_method")}:</label>
         <div class="controls">
-            <select name="payment_data[processor_params][payment_method_type]" id="as_sberpay_payment_method">
-                <option value="1" {if $processor_params.payment_method_type == 1}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_full_prepay")}</option>
-                <option value="2" {if $processor_params.payment_method_type == 2}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_partial_prepay")}</option>
-                <option value="3" {if $processor_params.payment_method_type == 3}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_advance")}</option>
-                <option value="4" {if $processor_params.payment_method_type == 4}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_full_payment")}</option>
-                <option value="5" {if $processor_params.payment_method_type == 5}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_partial_credit")}</option>
-                <option value="6" {if $processor_params.payment_method_type == 6}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_credit_transfer")}</option>
-                <option value="7" {if $processor_params.payment_method_type == 7}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_credit_payment")}</option>
+            <select name="payment_data[processor_params][payment_method]" id="as_sberpay_pm">
+                <option value="full_prepayment" {if $cur_pm == "full_prepayment"}selected="selected"{/if}>{__("addons.as_sberpay_api.pm_full_prepayment")}</option>
+                <option value="prepayment"      {if $cur_pm == "prepayment"}     selected="selected"{/if}>{__("addons.as_sberpay_api.pm_prepayment")}</option>
+                <option value="advance"         {if $cur_pm == "advance"}        selected="selected"{/if}>{__("addons.as_sberpay_api.pm_advance")}</option>
+                <option value="full_payment"    {if $cur_pm == "full_payment"}   selected="selected"{/if}>{__("addons.as_sberpay_api.pm_full_payment")}</option>
             </select>
-        </div>
-    </div>
-
-    <div class="control-group">
-        <label class="control-label" for="as_sberpay_payment_object">{__("addons.as_sberpay_api.payment_object_type")}:</label>
-        <div class="controls">
-            <select name="payment_data[processor_params][payment_object_type]" id="as_sberpay_payment_object">
-                <option value="1" {if $processor_params.payment_object_type == 1}selected="selected"{/if}>{__("addons.as_sberpay_api.po_goods")}</option>
-                <option value="2" {if $processor_params.payment_object_type == 2}selected="selected"{/if}>{__("addons.as_sberpay_api.po_excise")}</option>
-                <option value="3" {if $processor_params.payment_object_type == 3}selected="selected"{/if}>{__("addons.as_sberpay_api.po_job")}</option>
-                <option value="4" {if $processor_params.payment_object_type == 4}selected="selected"{/if}>{__("addons.as_sberpay_api.po_service")}</option>
-                <option value="7" {if $processor_params.payment_object_type == 7}selected="selected"{/if}>{__("addons.as_sberpay_api.po_lottery")}</option>
-                <option value="9" {if $processor_params.payment_object_type == 9}selected="selected"{/if}>{__("addons.as_sberpay_api.po_ip")}</option>
-                <option value="10" {if $processor_params.payment_object_type == 10}selected="selected"{/if}>{__("addons.as_sberpay_api.po_payment")}</option>
-                <option value="11" {if $processor_params.payment_object_type == 11}selected="selected"{/if}>{__("addons.as_sberpay_api.po_commission")}</option>
-                <option value="12" {if $processor_params.payment_object_type == 12}selected="selected"{/if}>{__("addons.as_sberpay_api.po_combined")}</option>
-                <option value="13" {if $processor_params.payment_object_type == 13}selected="selected"{/if}>{__("addons.as_sberpay_api.po_other")}</option>
-            </select>
+            <p class="muted description">{__("addons.as_sberpay_api.payment_method_hint")}</p>
         </div>
     </div>
 
