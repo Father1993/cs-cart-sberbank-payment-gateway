@@ -314,24 +314,35 @@ class AsSberPayApi
      */
     public function doReceipt($order_info)
     {
+        $order_id = $order_info['order_id'] ?? 0;
+
+        $this->log([
+            'order_id' => $order_id,
+            'status' => $order_info['status'] ?? '',
+            'transaction_id' => $order_info['payment_info']['transaction_id'] ?? '',
+        ], 'doReceipt: start');
+
         if (!$this->send_order) {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped send_order');
             return [];
         }
 
         $gateway_order_id = $order_info['payment_info']['transaction_id'] ?? '';
         if (!$gateway_order_id) {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped no transaction_id');
             return [];
         }
 
         $bundle = $this->buildOrderBundle($order_info, self::PM_FULL_PAYMENT);
         if (!$bundle) {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped empty bundle');
             return [];
         }
 
         $args = [
-            'userName'    => $this->login,
-            'password'    => $this->password,
-            'orderId'     => $gateway_order_id,
+            'userName' => $this->login,
+            'password' => $this->password,
+            'orderId' => $gateway_order_id,
             'orderBundle' => $bundle,
         ];
 
@@ -340,7 +351,7 @@ class AsSberPayApi
         }
 
         $response = $this->request('doReceipt.do', $args);
-        $this->log(['order_id' => $order_info['order_id'], 'response' => $response], 'doReceipt');
+        $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
 
         return $response;
     }
