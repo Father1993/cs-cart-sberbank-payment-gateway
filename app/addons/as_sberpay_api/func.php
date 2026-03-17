@@ -31,6 +31,41 @@ function fn_as_sberpay_api_uninstall()
 }
 
 /**
+ * Хук: отправляет закрывающий чек (doReceipt) при переводе оплаченного заказа в «Выполнен».
+ *
+ * @param string $status_to           Новый статус
+ * @param string $status_from         Предыдущий статус
+ * @param array  $order_info          Данные заказа
+ * @param array  $force_notification  Форс-уведомления
+ * @param array  $order_statuses      Справочник статусов с параметрами
+ * @param bool   $place_order         Флаг размещения заказа
+ */
+function fn_as_sberpay_api_change_order_status_post(
+    $status_to, $status_from, $order_info,
+    $force_notification, $order_statuses, $place_order
+) {
+    if ($status_to !== 'C') {
+        return;
+    }
+
+    $prev = $order_statuses[$status_from]['params'] ?? [];
+    if (empty($prev['payment_received']) || $prev['payment_received'] !== 'Y') {
+        return;
+    }
+
+    if (empty($order_info['payment_info']['transaction_id'])) {
+        return;
+    }
+
+    $processor_data = fn_get_processor_data($order_info['payment_id']);
+    if (($processor_data['processor']['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+        return;
+    }
+
+    (new \Tygh\Payments\Processors\AsSberPayApi($processor_data))->doReceipt($order_info);
+}
+
+/**
  * Хук: помечает процессор как российский для категоризации.
  *
  * @param string $lang_code  Код языка

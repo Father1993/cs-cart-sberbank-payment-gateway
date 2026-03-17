@@ -6,5 +6,6 @@
 if (!defined('BOOTSTRAP')) { die('Access denied'); }
 
 fn_register_hooks(
-    'get_payment_processors_post'
+    'get_payment_processors_post',
+    'change_order_status_post'
 );
