@@ -339,6 +339,8 @@ class AsSberPayApi
             return [];
         }
 
+        unset($bundle['receiptType']);
+
         $args = [
             'userName' => $this->login,
             'password' => $this->password,
@@ -349,6 +351,11 @@ class AsSberPayApi
         if (!empty($order_info['email'])) {
             $args['email'] = $order_info['email'];
         }
+
+        $this->log([
+            'order_id' => $order_id,
+            'request' => array_merge($args, ['password' => '***']),
+        ], 'doReceipt: request');
 
         $response = $this->request('doReceipt.do', $args);
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
