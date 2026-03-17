@@ -49,11 +49,23 @@ function fn_as_sberpay_api_change_order_status_post(
     }
 
     $processor_data = fn_get_processor_data($order_info['payment_id']);
-    if (($processor_data['processor']['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+    if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
         return;
     }
 
-    (new \Tygh\Payments\Processors\AsSberPayApi($processor_data))->doReceipt($order_info);
+    $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
+
+    if ($processor->isLogging()) {
+        $processor->log([
+            'order_id' => $order_id,
+            'status_from' => $status_from,
+            'status_to' => $status_to,
+            'payment_id' => $order_info['payment_id'] ?? 0,
+            'transaction_id' => $order_info['payment_info']['transaction_id'],
+        ], 'change_order_status_post');
+    }
+
+    $processor->doReceipt($order_info);
 }
 
 /**
