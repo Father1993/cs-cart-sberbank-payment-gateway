@@ -521,6 +521,7 @@ class AsSberPayApi
         $total_kopecks = $this->formatAmount($order_info['total']);
         $items = [];
         $pos = 1;
+        $unit_names = $this->getOrderProductUnitNames($order_info);
 
         foreach ($order_info['products'] as $product) {
             $qty = !empty($product['amount']) ? (float) $product['amount'] : 1;
@@ -541,7 +542,7 @@ class AsSberPayApi
                 'itemCode' => $item_code,
                 'name' => $name,
                 'quantity' => ['value' => $qty],
-                'measurementUnit' => 'шт.',
+                'measurementUnit' => $this->resolveMeasurementUnit($product, $unit_names),
                 'itemPrice' => $price,
                 'itemAmount' => (int) round($price * $qty),
                 'paymentMethod' => $pm,
@@ -565,7 +566,7 @@ class AsSberPayApi
                     127
                 ),
                 'quantity' => ['value' => 1],
-                'measurementUnit' => 'шт.',
+                'measurementUnit' => 'услуга',
                 'itemPrice' => $sum_k,
                 'itemAmount' => $sum_k,
                 'paymentMethod' => $pm,
@@ -583,7 +584,7 @@ class AsSberPayApi
                 'itemCode' => 'Delivery-' . $pos,
                 'name' => 'Услуга доставки',
                 'quantity' => ['value' => 1],
-                'measurementUnit' => 'шт.',
+                'measurementUnit' => 'услуга',
                 'itemPrice' => $sum_k,
                 'itemAmount' => $sum_k,
                 'paymentMethod' => $pm,
@@ -612,6 +613,50 @@ class AsSberPayApi
             'total' => $total_kopecks,
             'cartItems' => ['items' => $items],
         ];
+    }
+
+    /**
+     * Подтягивает unit_name по товарам заказа, если поле не попало в order_info.
+     */
+    private function getOrderProductUnitNames(array $order_info)
+    {
+        $product_ids = [];
+
+        foreach ((array) $order_info['products'] as $product) {
+            if (!empty($product['product_id'])) {
+                $product_ids[] = (int) $product['product_id'];
+            }
+        }
+
+        $product_ids = array_values(array_unique(array_filter($product_ids)));
+        if (!$product_ids) {
+            return [];
+        }
+
+        return db_get_hash_single_array(
+            'SELECT product_id, unit_name FROM ?:product_descriptions WHERE product_id IN (?n) AND lang_code = ?s',
+            ['product_id', 'unit_name'],
+            $product_ids,
+            !empty($order_info['lang_code']) ? $order_info['lang_code'] : CART_LANGUAGE
+        );
+    }
+
+    /**
+     * Возвращает единицу измерения для товарной позиции чека.
+     */
+    private function resolveMeasurementUnit(array $product, array $unit_names)
+    {
+        $unit = '';
+
+        if (!empty($product['unit_name'])) {
+            $unit = (string) $product['unit_name'];
+        } elseif (!empty($product['product_id']) && isset($unit_names[(int) $product['product_id']])) {
+            $unit = (string) $unit_names[(int) $product['product_id']];
+        }
+
+        $unit = trim(preg_replace('/\s+/u', ' ', $unit));
+
+        return $unit !== '' ? mb_substr($unit, 0, 16) : 'шт';
     }
 
     /**
