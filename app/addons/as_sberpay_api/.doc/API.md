@@ -11,10 +11,19 @@
 
 ## URL-ы
 
+### Платёжный API
+
 | Среда  | URL                                                     |
 |--------|---------------------------------------------------------|
 | Тест   | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/` |
 | Боевая | `https://epay.sberbank.ru/ecomm/gw/partner/api/v1/`     |
+
+### OFD API
+
+| Среда  | URL                                                         |
+|--------|-------------------------------------------------------------|
+| Тест   | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/ofd/v1/` |
+| Боевая | `https://epay.sberbank.ru/ecomm/gw/partner/api/ofd/v1/`     |
 
 ## Требования
 
@@ -145,10 +154,12 @@
 
 `amount: 0` = полная сумма заказа.
 
-### 7. doReceipt.do — Закрывающий чек (54-ФЗ)
+### 7. doReceipt — Закрывающий чек (54-ФЗ)
 
 Используется для пробития чека полного расчёта отдельно от платежа.
 В модуле вызывается автоматически при переводе заказа в статус **Выполнен (C)**.
+
+**Endpoint:** `POST /ecomm/gw/partner/api/ofd/v1/doReceipt`
 
 **Запрос:**
 ```json
@@ -187,13 +198,12 @@
 
 ## orderBundle (54-ФЗ / АТОЛ)
 
-Передаётся в `register.do` и `doReceipt.do` при включённой фискализации.
+Передаётся в `register.do` и `doReceipt` при включённой фискализации.
 
 ```json
 {
   "ffdVersion": "1.05",
   "receiptType": "SELL",
-  "orderCreationDate": 1700000000000,
   "company": {
     "email": "shop@example.ru",
     "sno": "osn",
@@ -221,7 +231,7 @@
 }
 ```
 
-> `orderCreationDate` передаётся в **миллисекундах** (`time() * 1000`).
+> В текущей рабочей версии модуля `orderBundle` для `register.do` и `doReceipt` подтверждённо работает без `orderCreationDate`.
 
 ### taxType (НДС, Тэг ФФД 1199)
 
@@ -296,6 +306,7 @@
 | 1   | Заказ с таким orderNumber уже обработан         |
 | 5   | Ошибка значения параметра (в новом Partner API) |
 | 7   | Системная ошибка                                |
+| —   | `message: "Ошибка формата"`                     |
 | 12  | Пустая сумма                                    |
 
 > В новом Partner API `errorCode: 5` ≠ "Access denied" (это поведение старого RBS API).

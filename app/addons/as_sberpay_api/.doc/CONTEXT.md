@@ -4,11 +4,11 @@
 
 ---
 
-## Текущее состояние модуля (2026-03-16)
+## Текущее состояние модуля (2026-03-18)
 
-### Статус: Фискализация реализована полностью
+### Статус: Модуль рабочий, полный цикл фискализации подтверждён на проде
 
-Модуль переведён на новый партнёрский API Сбербанка. Регистрация заказа (`register.do`) и фискализация работают. Реализован закрывающий чек `doReceipt.do` — автоматически отправляется при переводе оплаченного заказа в статус «Выполнен» (C). Callback (`dynamicCallbackUrl`) на локальном контуре недоступен (домен `uroven.local`), на проде работает.
+Модуль переведён на новый партнёрский API Сбербанка. Регистрация заказа (`register.do`) работает через платёжный endpoint `/partner/api/v1/`. Закрывающий чек полного расчёта работает через OFD endpoint `/partner/api/ofd/v1/doReceipt` и автоматически отправляется при переводе оплаченного заказа в статус «Выполнен» (C). Полный цикл подтверждён на проде: первый чек `full_prepayment`, второй чек `full_payment`, ответ OFD-сервиса — `message: Успешно`.
 
 ---
 
@@ -17,8 +17,12 @@
 ### API
 
 - **Новый партнёрский API**: `application/json`, НЕ `form-urlencoded`
-- Тест: `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/`
-- Прод: `https://epay.sberbank.ru/ecomm/gw/partner/api/v1/`
+- Платёжный API:
+  - Тест: `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/`
+  - Прод: `https://epay.sberbank.ru/ecomm/gw/partner/api/v1/`
+- OFD API:
+  - Тест: `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/ofd/v1/`
+  - Прод: `https://epay.sberbank.ru/ecomm/gw/partner/api/ofd/v1/`
 - Тестовые креды: `userName=sbertest_2221`, `password=Sbertest2026123456`
 
 ### Критичные особенности нового API vs старого
@@ -28,8 +32,10 @@
 | Content-Type          | `x-www-form-urlencoded`      | `application/json`            |
 | Телефон               | `orderPayerData.mobilePhone` | топ-уровень `phone: "+79..."` |
 | Email                 | только в orderBundle         | топ-уровень `email`           |
-| `ffdVersion`          | внутри orderBundle           | топ-уровень запроса           |
-| `receiptType`         | внутри orderBundle           | топ-уровень запроса           |
+| Фискализация register | через `/partner/api/v1/`     | `register.do`                 |
+| Фискализация doReceipt| через `/partner/api/ofd/v1/` | `doReceipt`                   |
+| `ffdVersion`          | внутри orderBundle           | внутри `orderBundle`          |
+| `receiptType`         | внутри orderBundle           | внутри `orderBundle`          |
 | Вложенные JSON        | json_encode() строки         | нативные PHP-массивы          |
 | `orderId` в returnUrl | Гарантированно добавляется   | Не гарантирован               |
 
@@ -149,14 +155,57 @@ app/addons/as_sberpay_api/
 
 **Изменения**:
 
-1. **`AsSberPayApi.php`**: добавлен метод `doReceipt($order_info)` — строит `orderBundle` с `paymentMethod=full_payment` и отправляет на `doReceipt.do`
+1. **`AsSberPayApi.php`**: добавлен метод `doReceipt($order_info)` — строит `orderBundle` с `paymentMethod=full_payment`
 2. **`AsSberPayApi.php`**: `buildOrderBundle()` теперь принимает `$payment_method = null` для override; `$pm = $payment_method ?? $this->payment_method`
 3. **`init.php`**: зарегистрирован хук `change_order_status_post`
-4. **`func.php`**: добавлен обработчик `fn_as_sberpay_api_change_order_status_post` с 4 guard-условиями:
-   - `$status_to === 'C'`
-   - предыдущий статус имеет `payment_received = Y`
-   - есть `payment_info['transaction_id']`
-   - процессор = `as_sberpay_api.php`
+4. **`func.php`**: добавлен обработчик `fn_as_sberpay_api_change_order_status_post`
+
+### Итерация 9 — Исправление хука `change_order_status_post` (2026-03-17)
+
+**Причина**: в CS-Cart 4.18 хук `change_order_status_post` имеет сигнатуру
+`($order_id, $status_to, $status_from, $force_notification, $place_order, $order_info, $edp_data)`,
+а в модуле использовался неверный порядок аргументов. Из-за этого закрывающий чек не запускался.
+
+**Изменения**:
+- Исправлена сигнатура хука под CS-Cart 4.18
+- Убрана невалидная проверка через `$order_statuses`
+- Добавлено диагностическое логирование `change_order_status_post`
+
+### Итерация 10 — Исправление guard-условия процессора (2026-03-17)
+
+**Причина**: `fn_get_processor_data()` возвращает `processor_script` в корне массива, а не в `['processor']`.
+
+**Изменения**:
+- Проверка изменена с `['processor']['processor_script']` на `['processor_script']`
+- После этого хук начал корректно доходить до `doReceipt()`
+
+### Итерация 11 — Перевод doReceipt на OFD endpoint (2026-03-18)
+
+**Причина**: закрывающий чек отправлялся в платёжный endpoint `/partner/api/v1/`, тогда как OFD-сервис использует отдельный контур `/partner/api/ofd/v1/`.
+
+**Изменения**:
+- Добавлены константы `TEST_OFD_URL` и `PROD_OFD_URL`
+- `doReceipt()` переведён на endpoint `POST /partner/api/ofd/v1/doReceipt`
+- `request()` получил необязательный параметр `$base_url`
+
+### Итерация 12 — Финальный рабочий payload doReceipt (2026-03-18)
+
+**Причина**: после перевода на OFD endpoint сервис возвращал сначала `System error`, затем `Ошибка формата`. Итоговое рабочее тело запроса было подтверждено сравнением с `doReceipt.md` и `example.json`.
+
+**Итоговый рабочий payload**:
+- `orderId` — UUID заказа в Сбере из `payment_info.transaction_id`
+- `email` — email покупателя
+- `orderBundle.ffdVersion`
+- `orderBundle.receiptType = SELL`
+- `orderBundle.company`
+- `orderBundle.payments`
+- `orderBundle.total`
+- `orderBundle.cartItems.items[*].paymentMethod = full_payment`
+
+**Подтверждение на проде**:
+- Первый чек: `full_prepayment`
+- Второй чек: `full_payment`
+- Ответ OFD: `message => Успешно`
 
 ### Итерация 6 — Исправление orderCreationDate для фискализации (2026-03-11)
 
@@ -252,14 +301,15 @@ app/addons/as_sberpay_api/
 
 Должен быть в миллисекундах: `time() * 1000`.
 
-### 3. Фискализация — реализована, ожидает тестирования закрывающего чека
+### 3. Фискализация — подтверждена на проде
 
-**Чек-лист тестирования закрывающего чека:**
+**Подтверждено:**
 
-- [ ] Оплатить заказ → проверить первый чек (full_prepayment)
-- [ ] Перевести заказ в статус C (Выполнен)
-- [ ] Убедиться что в логах появился `[doReceipt]` с `errorCode: 0`
-- [ ] Проверить закрывающий чек (full_payment) в ЛК АТОЛ
+- [x] Оплата заказа формирует первый чек (`full_prepayment`)
+- [x] Перевод заказа в статус `C` запускает `change_order_status_post`
+- [x] `doReceipt` уходит в OFD endpoint `/partner/api/ofd/v1/doReceipt`
+- [x] Закрывающий чек формируется как `full_payment`
+- [x] OFD-сервис возвращает `message => Успешно`
 
 ### 4. Возвраты через `refund.do` — не тестировались
 
@@ -296,7 +346,7 @@ app/addons/as_sberpay_api/
 - Проверка статуса (`getOrderStatusExtended.do`)
 - Маппинг orderStatus → CS-Cart статус
 - Фискализация (54-ФЗ): `orderBundle` с корректными кодами taxType, PM/PO константы
-- Закрывающий чек `doReceipt.do` — при переводе заказа в «Выполнен» (C)
+- Закрывающий чек `doReceipt` через OFD endpoint — при переводе заказа в «Выполнен» (C)
 - Маскировка пароля в логах
 - Логирование в `var/logs/as_sberpay_api/`
 - `refund.do`, `reverse.do`, `deposit.do` — реализованы (не тестировались)

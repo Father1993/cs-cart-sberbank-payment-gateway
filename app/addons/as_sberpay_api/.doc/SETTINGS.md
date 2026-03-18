@@ -23,10 +23,10 @@
 
 ### Режим (mode)
 
-| Значение | URL API                                                     |
-|----------|-------------------------------------------------------------|
-| test     | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/`     |
-| live     | `https://epay.sberbank.ru/ecomm/gw/partner/api/v1/`         |
+| Значение | Платёжный API                                               | OFD API                                                         |
+|----------|-------------------------------------------------------------|-----------------------------------------------------------------|
+| test     | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/`     | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/ofd/v1/`     |
+| live     | `https://epay.sberbank.ru/ecomm/gw/partner/api/v1/`         | `https://epay.sberbank.ru/ecomm/gw/partner/api/ofd/v1/`         |
 
 - Начинать всегда с `test`
 - Переключать на `live` только после успешного тестирования
@@ -59,7 +59,7 @@
 
 - Включает передачу `orderBundle` в запросе `register.do`
 - **Обязательно для формирования чеков через АТОЛ**
-- Также включает отправку закрывающего чека `doReceipt.do` при переводе заказа в «Выполнен»
+- Также включает отправку закрывающего чека `doReceipt` через OFD endpoint при переводе заказа в «Выполнен»
 
 ### Система налогообложения (tax_system)
 
@@ -176,5 +176,6 @@
 Проверить что одновременно выполняются все условия:
 1. Включена опция "Отправлять корзину на шлюз"
 2. Заказ был оплачен через SberPay API (есть transaction_id)
-3. Предыдущий статус заказа имеет `payment_received = Y`
+3. Способ оплаты заказа использует процессор `as_sberpay_api.php`
 4. Статус меняется именно на `C` (Выполнен)
+5. Для закрывающего чека используется OFD endpoint `doReceipt` через `/partner/api/ofd/v1/`

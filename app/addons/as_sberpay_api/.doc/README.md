@@ -100,7 +100,7 @@ var/langs/en/addons/as_sberpay_api.po  # Английский перевод
 
 **Два чека:**
 - Первый (предоплата): `register.do` с `paymentMethod=full_prepayment` — при оплате
-- Закрывающий (полный расчёт): `doReceipt.do` с `paymentMethod=full_payment` — автоматически при переводе заказа в статус «Выполнен» (C)
+- Закрывающий (полный расчёт): `doReceipt` через OFD endpoint с `paymentMethod=full_payment` — автоматически при переводе заказа в статус «Выполнен» (C)
 
 ### 4. Callback vs Return
 
@@ -125,10 +125,19 @@ Callback может приходить повторно. Модуль прове
 
 ## URL-ы API
 
+### Платёжные методы
+
 | Среда    | URL                                                     |
 | -------- | ------------------------------------------------------- |
 | Тестовая | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/v1/` |
 | Боевая   | `https://epay.sberbank.ru/ecomm/gw/partner/api/v1/`     |
+
+### Фискализация / OFD
+
+| Среда    | URL                                                         |
+| -------- | ----------------------------------------------------------- |
+| Тестовая | `https://ecomtest.sberbank.ru/ecomm/gw/partner/api/ofd/v1/` |
+| Боевая   | `https://epay.sberbank.ru/ecomm/gw/partner/api/ofd/v1/`     |
 
 ---
 
@@ -159,6 +168,8 @@ var/logs/as_sberpay_api/sberpay_YYYY-MM.log
 - Каждый запрос register (без пароля)
 - Каждый ответ getOrderStatusExtended
 - Все callback
+- Вызов хука `change_order_status_post`
+- Запрос и ответ `doReceipt`
 - Все ошибки
 - Все финансовые операции (refund/reverse/deposit)
 
@@ -180,6 +191,9 @@ var/logs/as_sberpay_api/sberpay_YYYY-MM.log
 ### Минимальный чеклист
 
 - [ ] Успешный платёж (orderStatus = 2)
+- [ ] Первый чек сформирован как предоплата (`full_prepayment`)
+- [ ] Перевод заказа в `C` запускает `doReceipt`
+- [ ] Второй чек сформирован как полный расчёт (`full_payment`)
 - [ ] Неуспешный платёж (отмена на форме)
 - [ ] Callback обработан корректно
 - [ ] Return обработан корректно

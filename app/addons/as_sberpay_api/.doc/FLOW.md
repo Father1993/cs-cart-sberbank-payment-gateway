@@ -76,7 +76,7 @@ exit
 
 ```
 [Сбербанк] → GET returnUrl
-  Параметры: orderId, ordernumber
+  Параметры: ordernumber, mdOrder (orderId может отсутствовать)
            │
            ▼
 payments/as_sberpay_api.php
@@ -84,18 +84,17 @@ payments/as_sberpay_api.php
            │
            ▼
 fn_get_order_info($order_id)
-           │
-           ▼
-Проверка: transaction_id == $_REQUEST['orderId']
-           │
-     ┌─────┴──────┐
-   Нет           Да
-     │            │
-     ▼            ▼
-  reason_text   getOrderStatusExtended()
-  = 'Неверный     │
-   ID'            ▼
-               build_response()
+          │
+          ▼
+Берём transaction_id из payment_info
+и, если в URL есть mdOrder/orderId,
+дополнительно сверяем его
+          │
+          ▼
+getOrderStatusExtended()
+          │
+          ▼
+build_response()
            │
            ▼
 fn_finish_payment()
@@ -188,15 +187,15 @@ hook: change_order_status_post
 fn_as_sberpay_api_change_order_status_post()
 
 Guard-проверки:
-  1. status_to === 'C'?               → нет: exit
-  2. status_from.payment_received=Y?  → нет: exit
-  3. payment_info.transaction_id?     → нет: exit
-  4. processor = as_sberpay_api.php?  → нет: exit
+  1. status_to === 'C'?             → нет: exit
+  2. payment_info.transaction_id?   → нет: exit
+  3. processor = as_sberpay_api.php?→ нет: exit
          │
          ▼
 AsSberPayApi::doReceipt($order_info)
   buildOrderBundle($order_info, PM_FULL_PAYMENT)
-  POST doReceipt.do
+  POST doReceipt
+  URL: /partner/api/ofd/v1/doReceipt
          │
          ▼
 [Сбербанк] → принимает orderBundle
@@ -223,6 +222,11 @@ AsSberPayApi::doReceipt($order_info)
 
 Поэтому callback — основной обработчик.
 Return просто перепроверяет и показывает результат клиенту.
+
+### orderId в returnUrl не гарантирован
+
+Новый Partner API может вернуть только `mdOrder` или вообще не передать `orderId` в URL.
+Поэтому return-поток опирается на сохранённый `payment_info.transaction_id`.
 
 ### Callback может прийти 1-10 раз
 
