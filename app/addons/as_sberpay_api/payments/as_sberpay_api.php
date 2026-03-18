@@ -67,6 +67,8 @@ if (defined('PAYMENT_NOTIFICATION')) {
             exit;
         }
 
+        fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
+
         // Идемпотентность: не обрабатываем повторно если уже оплачен
         if ($order_info['status'] === $processor->getConfirmedStatus()) {
             if ($processor->isLogging()) {
@@ -119,6 +121,8 @@ if (defined('PAYMENT_NOTIFICATION')) {
             if ($processor->isLogging()) {
                 $processor->log($response, 'Return: status check');
             }
+
+            fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
 
             $pp_response = fn_as_sberpay_api_build_response($response, $processor);
         }

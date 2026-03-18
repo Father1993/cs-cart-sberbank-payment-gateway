@@ -20,6 +20,8 @@ function fn_as_sberpay_api_install()
         'type' => 'P',
         'addon' => 'as_sberpay_api',
     ]);
+
+    fn_as_sberpay_api_ensure_meta_table();
 }
 
 /**
@@ -28,6 +30,151 @@ function fn_as_sberpay_api_install()
 function fn_as_sberpay_api_uninstall()
 {
     db_query('DELETE FROM ?:payment_processors WHERE processor_script = ?s', 'as_sberpay_api.php');
+    db_query('DROP TABLE IF EXISTS ?:sberpay_order_meta');
+}
+
+/**
+ * Создаёт таблицу метаданных платежа, если модуль обновили без переустановки.
+ */
+function fn_as_sberpay_api_ensure_meta_table()
+{
+    static $done = false;
+
+    if ($done) {
+        return;
+    }
+
+    $done = true;
+
+    db_query(
+        "CREATE TABLE IF NOT EXISTS ?:sberpay_order_meta (
+            order_id INT(11) NOT NULL,
+            meta MEDIUMTEXT NOT NULL,
+            updated_at INT(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (order_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+    );
+}
+
+/**
+ * Достаёт значение именованного атрибута из массива Сбера.
+ */
+function fn_as_sberpay_api_get_named_value(array $items, $name)
+{
+    foreach ($items as $item) {
+        if (($item['name'] ?? '') === $name) {
+            return (string) ($item['value'] ?? '');
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Нормализует полезные для 1С реквизиты успешного платежа Сбера.
+ */
+function fn_as_sberpay_api_prepare_payment_meta(array $response, $gateway_order_id = '')
+{
+    $status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
+
+    if (!in_array($status, [1, 2, 4], true)) {
+        return [];
+    }
+
+    $payment_amount = $response['paymentAmountInfo'] ?? [];
+    $card_auth = $response['cardAuthInfo'] ?? [];
+    $meta = [
+        'provider' => 'sber',
+        'order_status' => $status,
+        'gateway_order_id' => $gateway_order_id ?: fn_as_sberpay_api_get_named_value($response['attributes'] ?? [], 'mdOrder'),
+        'bank_invoice_id' => fn_as_sberpay_api_get_named_value($response['transactionAttributes'] ?? [], 'SbolBankInvoiceId'),
+        'md_order' => fn_as_sberpay_api_get_named_value($response['attributes'] ?? [], 'mdOrder'),
+        'auth_ref_num' => (string) ($response['authRefNum'] ?? ''),
+        'approval_code' => (string) ($card_auth['approvalCode'] ?? ''),
+        'payment_state' => (string) ($payment_amount['paymentState'] ?? ''),
+        'approved_amount' => isset($payment_amount['approvedAmount']) ? round($payment_amount['approvedAmount'] / 100, 2) : null,
+        'deposited_amount' => isset($payment_amount['depositedAmount']) ? round($payment_amount['depositedAmount'] / 100, 2) : null,
+        'refunded_amount' => isset($payment_amount['refundedAmount']) ? round($payment_amount['refundedAmount'] / 100, 2) : null,
+        'currency' => isset($response['currency']) ? (int) $response['currency'] : null,
+        'deposited_date' => isset($response['depositedDate']) ? (int) $response['depositedDate'] : null,
+        'terminal_id' => (string) ($response['terminalId'] ?? ''),
+        'masked_pan' => (string) ($card_auth['maskedPan'] ?? ''),
+        'payment_system' => (string) ($card_auth['paymentSystem'] ?? ''),
+        'payment_way' => (string) ($card_auth['paymentWay'] ?? ''),
+    ];
+
+    return array_filter($meta, static function ($value) {
+        return $value !== '' && $value !== null;
+    });
+}
+
+/**
+ * Сохраняет метаданные платежа Сбера отдельно от payment_info.
+ */
+function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gateway_order_id = '')
+{
+    $order_id = (int) $order_id;
+    if (!$order_id) {
+        return;
+    }
+
+    $meta = fn_as_sberpay_api_prepare_payment_meta($response, $gateway_order_id);
+    if (!$meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_ensure_meta_table();
+
+    db_query('REPLACE INTO ?:sberpay_order_meta ?e', [
+        'order_id' => $order_id,
+        'meta' => json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'updated_at' => TIME,
+    ]);
+}
+
+/**
+ * Возвращает метаданные платежа Сбера по заказу.
+ */
+function fn_as_sberpay_api_get_payment_meta($order_id)
+{
+    fn_as_sberpay_api_ensure_meta_table();
+
+    $meta = db_get_field('SELECT meta FROM ?:sberpay_order_meta WHERE order_id = ?i', $order_id);
+    if (!$meta) {
+        return [];
+    }
+
+    $decoded = json_decode($meta, true);
+
+    return is_array($decoded) ? $decoded : [];
+}
+
+/**
+ * Возвращает карту метаданных по нескольким заказам.
+ */
+function fn_as_sberpay_api_get_payment_meta_map(array $order_ids)
+{
+    $order_ids = array_values(array_unique(array_filter(array_map('intval', $order_ids))));
+    if (!$order_ids) {
+        return [];
+    }
+
+    fn_as_sberpay_api_ensure_meta_table();
+
+    $rows = db_get_hash_array(
+        'SELECT order_id, meta FROM ?:sberpay_order_meta WHERE order_id IN (?n)',
+        'order_id',
+        $order_ids
+    );
+
+    foreach ($rows as $order_id => $row) {
+        $rows[$order_id] = json_decode($row['meta'], true);
+        if (!is_array($rows[$order_id])) {
+            unset($rows[$order_id]);
+        }
+    }
+
+    return $rows;
 }
 
 /**
@@ -82,4 +229,42 @@ function fn_as_sberpay_api_get_payment_processors_post($lang_code, &$processors)
         }
     }
     unset($processor);
+}
+
+/**
+ * Добавляет метаданные платежа Сбера в детальную информацию о заказе.
+ */
+function fn_as_sberpay_api_get_order_info(&$order, $additional_data)
+{
+    if (empty($order['order_id'])) {
+        return;
+    }
+
+    $meta = fn_as_sberpay_api_get_payment_meta((int) $order['order_id']);
+    if ($meta) {
+        $order['sber_payment_meta'] = $meta;
+    }
+}
+
+/**
+ * Добавляет метаданные платежа Сбера в списки заказов.
+ */
+function fn_as_sberpay_api_get_orders_post($params, &$orders)
+{
+    if (!$orders) {
+        return;
+    }
+
+    $meta_map = fn_as_sberpay_api_get_payment_meta_map(array_column($orders, 'order_id'));
+    if (!$meta_map) {
+        return;
+    }
+
+    foreach ($orders as &$order) {
+        $order_id = (int) ($order['order_id'] ?? 0);
+        if ($order_id && isset($meta_map[$order_id])) {
+            $order['sber_payment_meta'] = $meta_map[$order_id];
+        }
+    }
+    unset($order);
 }

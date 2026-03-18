@@ -2,7 +2,7 @@
 <addon scheme="3.0" edition_type="VENDOR">
     <id>as_sberpay_api</id>
 
-    <version>1.0.0</version>
+    <version>1.1.1</version>
 
     <authors>
         <author>
@@ -33,4 +33,15 @@
         <item for="install">fn_as_sberpay_api_install</item>
         <item for="uninstall">fn_as_sberpay_api_uninstall</item>
     </functions>
+    <queries>
+        <item for="install">
+            CREATE TABLE IF NOT EXISTS `?:sberpay_order_meta` (
+                `order_id` INT(11) NOT NULL,
+                `meta` MEDIUMTEXT NOT NULL,
+                `updated_at` INT(11) NOT NULL DEFAULT 0,
+                PRIMARY KEY (`order_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+        </item>
+        <item for="uninstall">DROP TABLE IF EXISTS `?:sberpay_order_meta`</item>
+    </queries>
 </addon>
