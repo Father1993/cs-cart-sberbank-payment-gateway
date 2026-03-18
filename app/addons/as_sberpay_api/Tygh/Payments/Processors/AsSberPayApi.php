@@ -343,8 +343,6 @@ class AsSberPayApi
             return [];
         }
 
-        unset($bundle['receiptType']);
-
         $args = [
             'userName' => $this->login,
             'password' => $this->password,

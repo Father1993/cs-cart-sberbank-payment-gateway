@@ -1,0 +1,77 @@
+{
+    "userName": "testUserName",
+    "password": "testPassword",
+    "orderId": "a67b0ced-c9a4-4cfb-bce3-b9595afaafc1",
+    "email": "customer@testmail.ru",
+    "orderBundle": {
+        "ffdVersion": "1.2",
+        "company": {
+            "email": "email@testshop.ru",
+            "sno": "osn",
+            "inn": "5027119066",
+            "paymentAddress": "http://testshop.ru"
+        },
+        "payments": [
+            {
+                "type": 1,
+                "sum": 24600
+            }
+        ],
+        "total": 24600,
+        "cartItems": {
+            "items": [
+                {
+                    "positionId": "1",
+                    "itemCode": "51",
+                    "name": "Сырок творожный со сгущенкой",
+                    "quantity": {
+                        "value": 1,
+                        "measure": "0"
+                    },
+                    "markCode": {
+                        "gs1m": "MDEwNDYwNTg2NTQ4NzE2MjIxbj1ZR3lJbUhVOmlNWh05MUVFMDYdOTJYNE1sVzk2R1o2ZmV2RGhnUjJhaHNKNUltTmtVZUsyMkdGeEpVMmxjREpRPQ=="
+                    },
+                    "itemPrice": 4700,
+                    "itemAmount": 4700,
+                    "paymentMethod": "full_payment",
+                    "paymentObject": "33",
+                    "tax": {
+                        "taxType": 2
+                    }
+                },
+                {
+                    "positionId": "2",
+                    "itemCode": "124",
+                    "name": "Виноград без косточек",
+                    "quantity": {
+                        "value": 0.4,
+                        "measure": "11"
+                    },
+                    "itemPrice": 25000,
+                    "itemAmount": 10000,
+                    "paymentMethod": "full_payment",
+                    "paymentObject": "1",
+                    "tax": {
+                        "taxType": 4
+                    }
+                },
+                {
+                    "positionId": "3",
+                    "itemCode": "341",
+                    "name": "Услуга доставки",
+                    "quantity": {
+                        "value": 1,
+                        "measure": "0"
+                    },
+                    "itemPrice": 9900,
+                    "itemAmount": 9900,
+                    "paymentMethod": "full_payment",
+                    "paymentObject": "4",
+                    "tax": {
+                        "taxType": 4
+                    }
+                }
+            ]
+        }
+    }
+}
