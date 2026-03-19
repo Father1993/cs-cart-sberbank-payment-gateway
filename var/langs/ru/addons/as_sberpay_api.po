@@ -260,3 +260,27 @@ msgstr "Аванс"
 msgctxt "Languages::addons.as_sberpay_api.pm_full_payment"
 msgid "Full payment"
 msgstr "Полный расчёт"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_money"
+msgid "Refund money"
+msgstr "Вернуть деньги"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_success"
+msgid "Refund request sent successfully"
+msgstr "Запрос на возврат денег успешно отправлен"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_failed"
+msgid "Refund request failed"
+msgstr "Не удалось выполнить возврат денег"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_not_available"
+msgid "Refund is available only for SberPay API orders"
+msgstr "Возврат доступен только для заказов, оплаченных через SberPay API"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_missing_transaction"
+msgid "Sber transaction ID is missing"
+msgstr "Не найден идентификатор транзакции Сбера"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_already_done"
+msgid "This order has already been refunded"
+msgstr "Для этого заказа возврат уже был выполнен"

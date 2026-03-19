@@ -145,6 +145,30 @@ msgctxt "Languages::addons.as_sberpay_api.pm_full_payment"
 msgid "Full payment"
 msgstr "Full payment"
 
+msgctxt "Languages::addons.as_sberpay_api.refund_money"
+msgid "Refund money"
+msgstr "Refund money"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_success"
+msgid "Refund request sent successfully"
+msgstr "Refund request sent successfully"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_failed"
+msgid "Refund request failed"
+msgstr "Refund request failed"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_not_available"
+msgid "Refund is available only for SberPay API orders"
+msgstr "Refund is available only for SberPay API orders"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_missing_transaction"
+msgid "Sber transaction ID is missing"
+msgstr "Sber transaction ID is missing"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_already_done"
+msgid "This order has already been refunded"
+msgstr "This order has already been refunded"
+
 msgctxt "Languages::addons.as_sberpay_api.pm_partial_credit"
 msgid "Partial payment with credit"
 msgstr "Partial payment with credit"

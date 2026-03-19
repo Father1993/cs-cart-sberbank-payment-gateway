@@ -316,6 +316,59 @@ class AsSberPayApi
     }
 
     /**
+     * Полный возврат заказа через refund.do c фискализацией SELL_REFUND.
+     *
+     * @param array  $order_info          Заказ CS-Cart
+     * @param string $external_refund_id  Идемпотентный ключ возврата
+     * @return array Ответ API
+     */
+    public function refundOrder(array $order_info, $external_refund_id = '')
+    {
+        $order_id = (int) ($order_info['order_id'] ?? 0);
+        $gateway_order_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
+        $amount = $this->formatAmount($order_info['total'] ?? 0);
+
+        if (!$gateway_order_id || $amount <= 0) {
+            $this->error_code = 997;
+            $this->error_text = 'Refund skipped: invalid order data';
+
+            return [];
+        }
+
+        $args = [
+            'userName' => $this->login,
+            'password' => $this->password,
+            'orderId' => $gateway_order_id,
+            'amount' => $amount,
+        ];
+
+        if ($external_refund_id !== '') {
+            $args['jsonParams'] = [
+                'externalRefundId' => $external_refund_id,
+            ];
+        }
+
+        if ($this->send_order) {
+            $bundle = $this->buildOrderBundle($order_info, $this->payment_method, 'SELL_REFUND');
+            if (!empty($bundle)) {
+                $args['orderBundle'] = $bundle;
+            }
+        }
+
+        $response = $this->request('refund.do', $args);
+        $this->log([
+            'order_id' => $order_id,
+            'gateway_order_id' => $gateway_order_id,
+            'amount' => $amount,
+            'external_refund_id' => $external_refund_id,
+            'request' => array_merge($args, ['password' => '***']),
+            'response' => $response,
+        ], 'refundOrder');
+
+        return $response;
+    }
+
+    /**
      * Отмена заказа (reverse.do).
      *
      * @param string $gateway_order_id ID заказа в Сбере
@@ -540,7 +593,7 @@ class AsSberPayApi
      * @param array $order_info Заказ CS-Cart
      * @return array|null
      */
-    private function buildOrderBundle($order_info, $payment_method = null)
+    private function buildOrderBundle($order_info, $payment_method = null, $receipt_type = 'SELL')
     {
         $pm = $payment_method ?? $this->payment_method;
         $total_kopecks = $this->formatAmount($order_info['total']);
@@ -622,7 +675,7 @@ class AsSberPayApi
 
         return [
             'ffdVersion' => (string) $ffd,
-            'receiptType' => 'SELL',
+            'receiptType' => (string) $receipt_type,
             'company' => [
                 'email' => $this->company['email'],
                 'sno' => $this->company['sno'],

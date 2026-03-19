@@ -1,0 +1,97 @@
+<?php
+/**
+ * AS SberPay API — действия администратора.
+ */
+
+use Tygh\Payments\Processors\AsSberPayApi;
+use Tygh\Registry;
+
+if (!defined('BOOTSTRAP')) { die('Access denied'); }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($mode === 'refund') {
+        $order_id = !empty($_REQUEST['order_id']) ? (int) $_REQUEST['order_id'] : 0;
+        $order_info = fn_get_order_info($order_id, false, false);
+
+        if (empty($order_info)) {
+            fn_set_notification('E', __('error'), __('object_not_found'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.manage'];
+        }
+
+        $runtime_company_id = (int) Registry::get('runtime.company_id');
+        if ($runtime_company_id && (int) ($order_info['company_id'] ?? 0) !== $runtime_company_id) {
+            fn_set_notification('E', __('error'), __('access_denied'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.manage'];
+        }
+
+        $processor_data = fn_get_processor_data($order_info['payment_id']);
+        if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+            fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_not_available'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        if (empty($order_info['payment_info']['transaction_id'])) {
+            fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_missing_transaction'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        $payment_meta = fn_as_sberpay_api_get_payment_meta($order_id);
+        if (!empty($payment_meta['refund']['status']) && $payment_meta['refund']['status'] === 'succeeded') {
+            fn_set_notification('W', __('warning'), __('addons.as_sberpay_api.refund_already_done'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        $processor = new AsSberPayApi($processor_data);
+        $external_refund_id = !empty($payment_meta['refund']['external_refund_id'])
+            ? (string) $payment_meta['refund']['external_refund_id']
+            : 'refund-' . $order_id . '-full';
+
+        $refund_response = $processor->refundOrder($order_info, $external_refund_id);
+        if ($processor->isError() || !isset($refund_response['errorCode']) || (string) $refund_response['errorCode'] !== '0') {
+            fn_as_sberpay_api_save_refund_meta($order_id, [
+                'status' => 'failed',
+                'external_refund_id' => $external_refund_id,
+                'amount' => (float) $order_info['total'],
+                'error_code' => (string) ($refund_response['errorCode'] ?? $processor->getErrorCode()),
+                'error_message' => (string) ($refund_response['errorMessage'] ?? $processor->getErrorText()),
+                'updated_at' => TIME,
+            ]);
+
+            fn_set_notification(
+                'E',
+                __('error'),
+                $processor->getErrorText() ?: (string) ($refund_response['errorMessage'] ?? __('addons.as_sberpay_api.refund_failed'))
+            );
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        $status_response = $processor->getOrderStatusExtended($order_info['payment_info']['transaction_id']);
+        if (!$processor->isError()) {
+            fn_as_sberpay_api_save_payment_meta($order_id, $status_response, $order_info['payment_info']['transaction_id']);
+            $payment_info = fn_as_sberpay_api_build_response($status_response, $processor);
+            if ($payment_info) {
+                fn_update_order_payment_info($order_id, array_merge((array) ($order_info['payment_info'] ?? []), $payment_info));
+            }
+        }
+
+        fn_as_sberpay_api_save_refund_meta($order_id, [
+            'status' => 'succeeded',
+            'external_refund_id' => $external_refund_id,
+            'amount' => (float) $order_info['total'],
+            'error_code' => '0',
+            'error_message' => (string) ($refund_response['errorMessage'] ?? ''),
+            'updated_at' => TIME,
+        ]);
+
+        fn_set_notification('N', __('notice'), __('addons.as_sberpay_api.refund_success'));
+
+        return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+    }
+}
+

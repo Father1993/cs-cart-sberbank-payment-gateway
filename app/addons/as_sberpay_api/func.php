@@ -144,6 +144,22 @@ function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gatewa
 }
 
 /**
+ * Сохраняет служебные данные возврата, не затрагивая базовую мету платежа.
+ */
+function fn_as_sberpay_api_save_refund_meta($order_id, array $refund_meta)
+{
+    if (!$refund_meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'refund' => array_filter($refund_meta, static function ($value) {
+            return $value !== '' && $value !== null;
+        }),
+    ]);
+}
+
+/**
  * Возвращает метаданные платежа Сбера по заказу.
  */
 function fn_as_sberpay_api_get_payment_meta($order_id)
