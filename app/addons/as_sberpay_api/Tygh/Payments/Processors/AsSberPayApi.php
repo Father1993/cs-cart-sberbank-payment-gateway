@@ -279,6 +279,31 @@ class AsSberPayApi
     }
 
     /**
+     * Статус чеков OFD (getReceiptStatus).
+     *
+     * @param string $gateway_order_id ID заказа в Сбере
+     * @return array Ответ API
+     */
+    public function getReceiptStatus($gateway_order_id)
+    {
+        $args = [
+            'userName' => $this->login,
+            'password' => $this->password,
+            'orderId' => $gateway_order_id,
+        ];
+
+        $ofd_base_url = $this->test_mode ? self::TEST_OFD_URL : self::PROD_OFD_URL;
+        $response = $this->request('getReceiptStatus', $args, $ofd_base_url);
+
+        $this->log([
+            'gateway_order_id' => $gateway_order_id,
+            'response' => $response,
+        ], 'getReceiptStatus');
+
+        return $response;
+    }
+
+    /**
      * Возврат средств (refund.do).
      *
      * @param string $gateway_order_id ID заказа в Сбере
@@ -362,6 +387,11 @@ class AsSberPayApi
         $ofd_base_url = $this->test_mode ? self::TEST_OFD_URL : self::PROD_OFD_URL;
         $response = $this->request('doReceipt', $args, $ofd_base_url);
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
+
+        if (empty($response['errorCode'])) {
+            $receipt_response = $this->getReceiptStatus($gateway_order_id);
+            \fn_as_sberpay_api_save_receipt_meta($order_id, $receipt_response);
+        }
 
         return $response;
     }

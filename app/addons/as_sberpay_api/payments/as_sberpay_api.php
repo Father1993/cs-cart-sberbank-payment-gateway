@@ -69,6 +69,10 @@ if (defined('PAYMENT_NOTIFICATION')) {
 
         fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
 
+        if (in_array((int) ($response['orderStatus'] ?? -1), [1, 2, 4], true)) {
+            fn_as_sberpay_api_save_receipt_meta($order_id, $processor->getReceiptStatus($gateway_id));
+        }
+
         // Идемпотентность: не обрабатываем повторно если уже оплачен
         if ($order_info['status'] === $processor->getConfirmedStatus()) {
             if ($processor->isLogging()) {
@@ -123,6 +127,10 @@ if (defined('PAYMENT_NOTIFICATION')) {
             }
 
             fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
+
+            if (in_array((int) ($response['orderStatus'] ?? -1), [1, 2, 4], true)) {
+                fn_as_sberpay_api_save_receipt_meta($order_id, $processor->getReceiptStatus($gateway_id));
+            }
 
             $pp_response = fn_as_sberpay_api_build_response($response, $processor);
         }

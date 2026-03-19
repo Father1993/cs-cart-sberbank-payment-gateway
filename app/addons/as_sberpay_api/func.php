@@ -109,19 +109,64 @@ function fn_as_sberpay_api_prepare_payment_meta(array $response, $gateway_order_
 }
 
 /**
- * Сохраняет метаданные платежа Сбера отдельно от payment_info.
+ * Нормализует receipts из ответа OFD-сервиса Сбера.
  */
-function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gateway_order_id = '')
+function fn_as_sberpay_api_prepare_receipt_meta(array $response)
+{
+    if (empty($response['receipts']) || !is_array($response['receipts'])) {
+        return [];
+    }
+
+    $receipts = [];
+
+    foreach ($response['receipts'] as $receipt) {
+        $payload = $receipt['payload'] ?? [];
+        $receipts[] = array_filter([
+            'receipt_id' => (string) ($receipt['receiptId'] ?? ''),
+            'receipt_status' => isset($receipt['receiptStatus']) ? (int) $receipt['receiptStatus'] : null,
+            'receipt_type' => (string) ($receipt['receiptType'] ?? ''),
+            'operation_type' => (string) ($receipt['operationType'] ?? ''),
+            'receipt_datetime' => (string) ($payload['receiptDatetime'] ?? ''),
+            'ofd_receipt_url' => (string) ($payload['ofdReceiptUrl'] ?? ''),
+            'fn_number' => (string) ($payload['fnNumber'] ?? ''),
+            'fiscal_document_number' => isset($payload['fiscalDocumentNumber']) ? (int) $payload['fiscalDocumentNumber'] : null,
+            'fiscal_document_attribute' => isset($payload['fiscalDocumentAttribute']) ? (string) $payload['fiscalDocumentAttribute'] : '',
+            'ecr_registration_number' => (string) ($payload['ecrRegistrationNumber'] ?? ''),
+            'device_code' => (string) ($receipt['deviceCode'] ?? ''),
+            'group_code' => (string) ($receipt['groupCode'] ?? ''),
+            'external_id' => (string) ($receipt['externalId'] ?? ''),
+        ], static function ($value) {
+            return $value !== '' && $value !== null;
+        });
+    }
+
+    $successful_receipts = array_values(array_filter($receipts, static function ($receipt) {
+        return (($receipt['receipt_status'] ?? null) === 3);
+    }));
+
+    $meta = ['receipts' => $receipts];
+    if (!empty($successful_receipts[0])) {
+        $meta['prepayment_receipt'] = $successful_receipts[0];
+    }
+    if (!empty($successful_receipts[1])) {
+        $meta['full_payment_receipt'] = $successful_receipts[1];
+    }
+
+    return $meta;
+}
+
+/**
+ * Сохраняет метаданные Сбера, не затирая уже сохранённые поля.
+ */
+function fn_as_sberpay_api_save_meta($order_id, array $meta)
 {
     $order_id = (int) $order_id;
-    if (!$order_id) {
+    if (!$order_id || !$meta) {
         return;
     }
 
-    $meta = fn_as_sberpay_api_prepare_payment_meta($response, $gateway_order_id);
-    if (!$meta) {
-        return;
-    }
+    $stored_meta = fn_as_sberpay_api_get_payment_meta($order_id);
+    $meta = array_merge($stored_meta, $meta);
 
     fn_as_sberpay_api_ensure_meta_table();
 
@@ -130,6 +175,37 @@ function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gatewa
         'meta' => json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         'updated_at' => TIME,
     ]);
+}
+
+/**
+ * Сохраняет метаданные платежа Сбера отдельно от payment_info.
+ */
+function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gateway_order_id = '')
+{
+    $meta = fn_as_sberpay_api_prepare_payment_meta($response, $gateway_order_id);
+    if (!$meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_save_meta($order_id, $meta);
+}
+
+/**
+ * Сохраняет реквизиты чеков из getReceiptStatus.
+ */
+function fn_as_sberpay_api_save_receipt_meta($order_id, array $response)
+{
+    $meta = fn_as_sberpay_api_prepare_receipt_meta($response);
+    if (!$meta) {
+        return;
+    }
+
+    $stored_meta = fn_as_sberpay_api_get_payment_meta($order_id);
+    if (!empty($stored_meta['receipts']) && count($stored_meta['receipts']) > count($meta['receipts'] ?? [])) {
+        $meta['receipts'] = $stored_meta['receipts'];
+    }
+
+    fn_as_sberpay_api_save_meta($order_id, $meta);
 }
 
 /**
