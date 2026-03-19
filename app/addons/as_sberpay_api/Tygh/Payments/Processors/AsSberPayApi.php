@@ -388,15 +388,6 @@ class AsSberPayApi
         $response = $this->request('doReceipt', $args, $ofd_base_url);
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
 
-        if (empty($response['errorCode'])) {
-            $receipt_sync = \fn_as_sberpay_api_sync_receipt_meta($this, $order_id, $gateway_order_id, 2);
-            if (!empty($receipt_sync['is_complete'])) {
-                \fn_as_sberpay_api_clear_receipt_sync($order_id);
-            } else {
-                \fn_as_sberpay_api_schedule_receipt_sync($order_id, 2);
-            }
-        }
-
         return $response;
     }
 

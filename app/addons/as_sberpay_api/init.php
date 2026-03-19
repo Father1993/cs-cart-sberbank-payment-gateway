@@ -9,6 +9,5 @@ fn_register_hooks(
     'get_payment_processors_post',
     'change_order_status_post',
     'get_order_info',
-    'get_orders_post',
-    'before_dispatch'
+    'get_orders_post'
 );
