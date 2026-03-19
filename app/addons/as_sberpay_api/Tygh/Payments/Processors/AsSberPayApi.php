@@ -389,8 +389,7 @@ class AsSberPayApi
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
 
         if (empty($response['errorCode'])) {
-            $receipt_response = $this->getReceiptStatus($gateway_order_id);
-            \fn_as_sberpay_api_save_receipt_meta($order_id, $receipt_response);
+            \fn_as_sberpay_api_sync_receipt_meta($this, $order_id, $gateway_order_id, 2);
         }
 
         return $response;

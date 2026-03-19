@@ -209,6 +209,49 @@ function fn_as_sberpay_api_save_receipt_meta($order_id, array $response)
 }
 
 /**
+ * Возвращает число успешно сформированных чеков.
+ */
+function fn_as_sberpay_api_get_successful_receipts_count(array $response)
+{
+    $count = 0;
+
+    foreach ((array) ($response['receipts'] ?? []) as $receipt) {
+        if (isset($receipt['receiptStatus']) && (int) $receipt['receiptStatus'] === 3) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+/**
+ * Обновляет мету чеков с небольшим retry, чтобы дождаться готовности OFD.
+ */
+function fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_order_id, $required_successful_receipts = 1, $max_attempts = 3, $sleep_seconds = 2)
+{
+    if (!$order_id || !$gateway_order_id) {
+        return [];
+    }
+
+    $last_response = [];
+
+    for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
+        $last_response = $processor->getReceiptStatus($gateway_order_id);
+        fn_as_sberpay_api_save_receipt_meta($order_id, $last_response);
+
+        if (fn_as_sberpay_api_get_successful_receipts_count($last_response) >= $required_successful_receipts) {
+            break;
+        }
+
+        if ($attempt < $max_attempts) {
+            sleep($sleep_seconds);
+        }
+    }
+
+    return $last_response;
+}
+
+/**
  * Возвращает метаданные платежа Сбера по заказу.
  */
 function fn_as_sberpay_api_get_payment_meta($order_id)
