@@ -70,7 +70,12 @@ if (defined('PAYMENT_NOTIFICATION')) {
         fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
 
         if (in_array((int) ($response['orderStatus'] ?? -1), [1, 2, 4], true)) {
-            fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_id, 1);
+            $receipt_sync = fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_id, 1);
+            if (!empty($receipt_sync['is_complete'])) {
+                fn_as_sberpay_api_clear_receipt_sync($order_id);
+            } else {
+                fn_as_sberpay_api_schedule_receipt_sync($order_id, 1);
+            }
         }
 
         // Идемпотентность: не обрабатываем повторно если уже оплачен
@@ -129,7 +134,12 @@ if (defined('PAYMENT_NOTIFICATION')) {
             fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
 
             if (in_array((int) ($response['orderStatus'] ?? -1), [1, 2, 4], true)) {
-                fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_id, 1);
+                $receipt_sync = fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_id, 1);
+                if (!empty($receipt_sync['is_complete'])) {
+                    fn_as_sberpay_api_clear_receipt_sync($order_id);
+                } else {
+                    fn_as_sberpay_api_schedule_receipt_sync($order_id, 1);
+                }
             }
 
             $pp_response = fn_as_sberpay_api_build_response($response, $processor);

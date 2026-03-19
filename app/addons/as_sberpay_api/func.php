@@ -209,6 +209,36 @@ function fn_as_sberpay_api_save_receipt_meta($order_id, array $response)
 }
 
 /**
+ * Ставит заказ в очередь догоняющей синхронизации чеков.
+ */
+function fn_as_sberpay_api_schedule_receipt_sync($order_id, $required_successful_receipts, $attempts = 0)
+{
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'receipt_sync' => [
+            'pending' => true,
+            'required_successful_receipts' => (int) $required_successful_receipts,
+            'attempts' => (int) $attempts,
+            'next_retry_at' => TIME + min(300, 30 * (2 ** (int) $attempts)),
+        ],
+    ]);
+}
+
+/**
+ * Очищает состояние отложенной синхронизации чеков.
+ */
+function fn_as_sberpay_api_clear_receipt_sync($order_id)
+{
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'receipt_sync' => [
+            'pending' => false,
+            'required_successful_receipts' => 0,
+            'attempts' => 0,
+            'next_retry_at' => 0,
+        ],
+    ]);
+}
+
+/**
  * Возвращает число успешно сформированных чеков.
  */
 function fn_as_sberpay_api_get_successful_receipts_count(array $response)
@@ -234,12 +264,14 @@ function fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_ord
     }
 
     $last_response = [];
+    $successful_receipts = 0;
 
     for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
         $last_response = $processor->getReceiptStatus($gateway_order_id);
         fn_as_sberpay_api_save_receipt_meta($order_id, $last_response);
+        $successful_receipts = fn_as_sberpay_api_get_successful_receipts_count($last_response);
 
-        if (fn_as_sberpay_api_get_successful_receipts_count($last_response) >= $required_successful_receipts) {
+        if ($successful_receipts >= $required_successful_receipts) {
             break;
         }
 
@@ -248,7 +280,74 @@ function fn_as_sberpay_api_sync_receipt_meta($processor, $order_id, $gateway_ord
         }
     }
 
-    return $last_response;
+    return [
+        'response' => $last_response,
+        'successful_receipts' => $successful_receipts,
+        'is_complete' => $successful_receipts >= $required_successful_receipts,
+    ];
+}
+
+/**
+ * Догоняющая синхронизация чеков при заходе в админку.
+ */
+function fn_as_sberpay_api_process_pending_receipt_sync()
+{
+    $rows = db_get_hash_array(
+        'SELECT order_id, meta FROM ?:sberpay_order_meta ORDER BY updated_at DESC LIMIT 20',
+        'order_id'
+    );
+
+    if (!$rows) {
+        return;
+    }
+
+    $processed = 0;
+
+    foreach ($rows as $order_id => $row) {
+        $meta = json_decode($row['meta'], true);
+        $sync = $meta['receipt_sync'] ?? [];
+
+        if (empty($sync['pending']) || (int) ($sync['next_retry_at'] ?? 0) > TIME) {
+            continue;
+        }
+
+        $order_info = fn_get_order_info((int) $order_id, false, false);
+        if (empty($order_info['payment_info']['transaction_id']) || empty($order_info['payment_id'])) {
+            fn_as_sberpay_api_clear_receipt_sync($order_id);
+            continue;
+        }
+
+        $processor_data = fn_get_processor_data($order_info['payment_id']);
+        if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+            fn_as_sberpay_api_clear_receipt_sync($order_id);
+            continue;
+        }
+
+        $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
+        $result = fn_as_sberpay_api_sync_receipt_meta(
+            $processor,
+            (int) $order_id,
+            $order_info['payment_info']['transaction_id'],
+            (int) ($sync['required_successful_receipts'] ?? 1),
+            1,
+            0
+        );
+
+        if (!empty($result['is_complete'])) {
+            fn_as_sberpay_api_clear_receipt_sync($order_id);
+        } else {
+            fn_as_sberpay_api_schedule_receipt_sync(
+                $order_id,
+                (int) ($sync['required_successful_receipts'] ?? 1),
+                (int) ($sync['attempts'] ?? 0) + 1
+            );
+        }
+
+        $processed++;
+        if ($processed >= 5) {
+            break;
+        }
+    }
 }
 
 /**
@@ -386,4 +485,22 @@ function fn_as_sberpay_api_get_orders_post($params, &$orders)
         }
     }
     unset($order);
+}
+
+/**
+ * Обрабатывает pending-синхронизацию чеков в админке.
+ */
+function fn_as_sberpay_api_before_dispatch(&$controller, &$mode, &$action, &$dispatch_extra, &$area)
+{
+    if ($area !== 'A') {
+        return;
+    }
+
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    fn_as_sberpay_api_process_pending_receipt_sync();
 }
