@@ -1,0 +1,31 @@
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+id_rsa
+id_ed25519
+
+# Logs (never commit)
+**/var/logs/
+*.log
+
+# Dumps and backups
+*.sql
+*.dump
+*.bak
+
+# CS-Cart / PHP
+vendor/
+composer.phar
+
+# Legacy local tooling (do not add back)
+CommitPilot/

@@ -1,0 +1,54 @@
+# Пример деплоя через GitLab CI (скопируйте в .gitlab-ci.yml в приватном форке
+# или настройте pipeline с нуля). В публичном репозитории не храните реальные IP,
+# хосты, имена пользователей SSH и ключи.
+
+image: debian:12
+
+stages:
+  - deploy
+
+# Задайте в GitLab CI/CD → Variables (masked + protected):
+#   SSH_PRIVATE_KEY     — приватный ключ для деплоя
+#   DEPLOY_SERVER_IP    — IP или hostname сервера
+#   DEPLOY_USER         — пользователь SSH (например deploy)
+#   PROJECT_PATH        — корень CS-Cart на сервере (например /var/www/html)
+#   SITE_DIR            — имя каталога варианта сайта (см. cscart-sdk)
+#   REPO_DIR            — относительный путь к клону аддона от PROJECT_PATH
+#   ADDON_ID            — as_sberpay_api
+#   CSCART_SDK_PATH     — полный путь к bin/cscart-sdk на сервере
+
+.deploy_template: &deploy_template
+  stage: deploy
+  before_script:
+    - apt-get update -qq && apt-get install -y openssh-client
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$DEPLOY_SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+        "${DEPLOY_USER}@${DEPLOY_SERVER_IP}" "
+        set -e
+        cd \"${PROJECT_PATH}/${REPO_DIR}\"
+        git fetch origin && git checkout \"${CI_COMMIT_BRANCH}\" && git pull
+        cd \"${PROJECT_PATH}\"
+        \"${CSCART_SDK_PATH}\" addon:symlink \"${ADDON_ID}\" \"${REPO_DIR}\" \"${SITE_DIR}\" --templates-to-design
+      "
+
+# deploy_dev:
+#   <<: *deploy_template
+#   only:
+#     - dev
+#   environment:
+#     name: development
+#     url: https://your-dev-store.example
+
+# deploy_prod:
+#   <<: *deploy_template
+#   only:
+#     - main
+#   when: manual
+#   environment:
+#     name: production
+#     url: https://your-store.example
