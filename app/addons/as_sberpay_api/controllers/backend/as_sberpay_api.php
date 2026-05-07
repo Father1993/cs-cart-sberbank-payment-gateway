@@ -47,11 +47,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $processor = new AsSberPayApi($processor_data);
+        $refund_context = fn_as_sberpay_api_build_refund_context($payment_meta);
+
+        if ($processor->usesOrderBundle()) {
+            $order_total_minor = (int) round(fn_format_price_by_currency($order_info['total'] ?? 0) * 100);
+
+            if (empty($payment_meta['fiscal_snapshot']) || !$refund_context) {
+                fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_missing_snapshot'));
+
+                return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+            }
+
+            if ($order_total_minor !== (int) ($refund_context['refundable_amount_minor'] ?? 0)) {
+                fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_only_full_snapshot_supported'));
+
+                return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+            }
+
+            if (empty($refund_context['refund_order_bundle_ready']) || empty($refund_context['refund_order_bundle'])) {
+                fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_bundle_rebuild_required'));
+
+                return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+            }
+        }
+
         $external_refund_id = !empty($payment_meta['refund']['external_refund_id'])
             ? (string) $payment_meta['refund']['external_refund_id']
             : 'refund-' . $order_id . '-full';
 
-        $refund_response = $processor->refundOrder($order_info, $external_refund_id);
+        $refund_response = $processor->refundOrder($order_info, $external_refund_id, $payment_meta);
         if ($processor->isError() || !isset($refund_response['errorCode']) || (string) $refund_response['errorCode'] !== '0') {
             fn_as_sberpay_api_save_refund_meta($order_id, [
                 'status' => 'failed',

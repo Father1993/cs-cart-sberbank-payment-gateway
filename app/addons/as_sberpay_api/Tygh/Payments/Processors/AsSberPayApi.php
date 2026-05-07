@@ -147,6 +147,11 @@ class AsSberPayApi
     private $error_text = '';
 
     /**
+     * @var array Контекст последней успешной/последней попытки register.do.
+     */
+    private $last_register_context = [];
+
+    /**
      * @param array $processor_data Данные процессора из БД
      */
     public function __construct($processor_data)
@@ -242,6 +247,14 @@ class AsSberPayApi
             }
         }
 
+        $this->last_register_context = [
+            'order_id' => (int) $order_id,
+            'order_number' => (string) $order_number,
+            'amount' => (int) $amount,
+            'order_bundle' => is_array($bundle) ? $bundle : [],
+            'uses_order_bundle' => $this->send_order && !empty($bundle),
+        ];
+
         $endpoint = $this->two_staging ? 'registerPreAuth.do' : 'register.do';
         $response = $this->request($endpoint, $args);
 
@@ -322,7 +335,7 @@ class AsSberPayApi
      * @param string $external_refund_id  Идемпотентный ключ возврата
      * @return array Ответ API
      */
-    public function refundOrder(array $order_info, $external_refund_id = '')
+    public function refundOrder(array $order_info, $external_refund_id = '', array $payment_meta = [])
     {
         $order_id = (int) ($order_info['order_id'] ?? 0);
         $gateway_order_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
@@ -349,10 +362,20 @@ class AsSberPayApi
         }
 
         if ($this->send_order) {
-            $bundle = $this->buildOrderBundle($order_info, $this->payment_method, 'SELL_REFUND');
-            if (!empty($bundle)) {
-                $args['orderBundle'] = $bundle;
+            $bundle = $this->buildSafeFullRefundBundle($order_info, $amount, $payment_meta);
+            if (empty($bundle)) {
+                $this->log([
+                    'order_id' => $order_id,
+                    'gateway_order_id' => $gateway_order_id,
+                    'amount' => $amount,
+                    'error_code' => $this->error_code,
+                    'error_text' => $this->error_text,
+                ], 'refundOrder: skipped unsafe snapshot bundle');
+
+                return [];
             }
+
+            $args['orderBundle'] = $bundle;
         }
 
         $response = $this->request('refund.do', $args);
@@ -480,9 +503,19 @@ class AsSberPayApi
         return $this->confirmed_status;
     }
 
+    public function getLastRegisterContext()
+    {
+        return $this->last_register_context;
+    }
+
     public function isLogging()
     {
         return $this->logging;
+    }
+
+    public function usesOrderBundle()
+    {
+        return $this->send_order;
     }
 
     // =========================================================================
@@ -585,6 +618,57 @@ class AsSberPayApi
         $this->log(['gateway_order_id' => $gateway_order_id, 'amount' => $amount, 'response' => $response], $endpoint);
 
         return $response;
+    }
+
+    /**
+     * Возвращает snapshot-based orderBundle только для безопасного полного refund.
+     *
+     * Если сумма админского возврата не совпадает с текущим refundable остатком
+     * или snapshot не позволяет честно собрать bundle, refund с сайта блокируется.
+     */
+    private function buildSafeFullRefundBundle(array $order_info, $amount, array $payment_meta = [])
+    {
+        $order_id = (int) ($order_info['order_id'] ?? 0);
+
+        if (!$payment_meta && $order_id > 0) {
+            $payment_meta = fn_as_sberpay_api_get_payment_meta($order_id);
+        }
+
+        if (empty($payment_meta['fiscal_snapshot']) || !is_array($payment_meta['fiscal_snapshot'])) {
+            $this->error_code = 996;
+            $this->error_text = 'Refund skipped: fiscal snapshot is missing';
+
+            return [];
+        }
+
+        $refund_context = fn_as_sberpay_api_build_refund_context($payment_meta);
+        if (!$refund_context) {
+            $this->error_code = 995;
+            $this->error_text = 'Refund skipped: refund context is unavailable';
+
+            return [];
+        }
+
+        $refundable_amount_minor = (int) ($refund_context['refundable_amount_minor'] ?? 0);
+        if ((int) $amount !== $refundable_amount_minor) {
+            $this->error_code = 994;
+            $this->error_text = 'Refund skipped: only safe full snapshot refund is supported';
+
+            return [];
+        }
+
+        $bundle = !empty($refund_context['refund_order_bundle']) && is_array($refund_context['refund_order_bundle'])
+            ? $refund_context['refund_order_bundle']
+            : [];
+
+        if (empty($refund_context['refund_order_bundle_ready']) || !$bundle) {
+            $this->error_code = 993;
+            $this->error_text = 'Refund skipped: snapshot refund bundle must be rebuilt outside the site';
+
+            return [];
+        }
+
+        return $bundle;
     }
 
     /**

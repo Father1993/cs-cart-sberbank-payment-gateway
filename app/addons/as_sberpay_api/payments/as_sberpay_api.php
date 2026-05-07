@@ -148,6 +148,13 @@ if (defined('PAYMENT_NOTIFICATION')) {
             'transaction_id' => $response['orderId'],
         ]);
 
+        fn_as_sberpay_api_save_fiscal_snapshot(
+            $order_id,
+            $order_info,
+            $processor->getLastRegisterContext(),
+            (string) $response['orderId']
+        );
+
         fn_clear_cart(\Tygh::$app['session']['cart']);
         fn_create_payment_form($response['formUrl'], [], '', true, 'GET');
     } else {
@@ -164,70 +171,4 @@ if (defined('PAYMENT_NOTIFICATION')) {
         ]);
         fn_order_placement_routines('route', $order_id, false);
     }
-}
-
-// =============================================================================
-//  Вспомогательная функция: формирование pp_response из ответа Сбера
-// =============================================================================
-
-/**
- * Формирует массив pp_response на основе ответа getOrderStatusExtended.
- *
- * orderStatus:
- *   0 = заказ зарегистрирован, не оплачен
- *   1 = предавторизованная сумма захолдирована
- *   2 = полная авторизация (оплачен)
- *   3 = авторизация отменена
- *   4 = по транзакции была проведена операция возврата
- *   5 = ACS авторизация инициирована
- *   6 = авторизация отклонена
- *
- * @param array           $response  Ответ API
- * @param AsSberPayApi    $processor Экземпляр процессора
- * @return array pp_response
- */
-function fn_as_sberpay_api_build_response($response, $processor)
-{
-    $status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
-    $pai = !empty($response['paymentAmountInfo']) ? $response['paymentAmountInfo'] : [];
-
-    // Успешная оплата или холд
-    if ($status === 1 || $status === 2) {
-        return [
-            'order_status'      => $processor->getConfirmedStatus(),
-            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
-            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
-            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
-            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
-        ];
-    }
-
-    // Возврат
-    if ($status === 4) {
-        return [
-            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
-            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
-            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
-            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
-        ];
-    }
-
-    // Отмена
-    if ($status === 3) {
-        return [
-            'order_status'      => 'F',
-            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
-            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
-            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
-            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
-        ];
-    }
-
-    // Ошибка / отклонение / прочее
-    return [
-        'order_status' => 'F',
-        'reason_text'  => !empty($response['actionCodeDescription'])
-            ? $response['actionCodeDescription']
-            : (!empty($response['errorMessage']) ? $response['errorMessage'] : 'Оплата не прошла'),
-    ];
 }

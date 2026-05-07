@@ -169,6 +169,18 @@ msgctxt "Languages::addons.as_sberpay_api.refund_already_done"
 msgid "This order has already been refunded"
 msgstr "This order has already been refunded"
 
+msgctxt "Languages::addons.as_sberpay_api.refund_missing_snapshot"
+msgid "Refund is unavailable because the fiscal snapshot for this order was not saved"
+msgstr "Refund is unavailable because the fiscal snapshot for this order was not saved"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_only_full_snapshot_supported"
+msgid "Only a full refund that exactly matches the current refundable amount can be sent from the site"
+msgstr "Only a full refund that exactly matches the current refundable amount can be sent from the site"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_bundle_rebuild_required"
+msgid "This refund bundle must be rebuilt in 1C before sending it to Sber"
+msgstr "This refund bundle must be rebuilt in 1C before sending it to Sber"
+
 msgctxt "Languages::addons.as_sberpay_api.pm_partial_credit"
 msgid "Partial payment with credit"
 msgstr "Partial payment with credit"

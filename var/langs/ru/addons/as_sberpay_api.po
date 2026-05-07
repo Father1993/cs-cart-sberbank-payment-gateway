@@ -284,3 +284,15 @@ msgstr "Не найден идентификатор транзакции Сбе
 msgctxt "Languages::addons.as_sberpay_api.refund_already_done"
 msgid "This order has already been refunded"
 msgstr "Для этого заказа возврат уже был выполнен"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_missing_snapshot"
+msgid "Refund is unavailable because the fiscal snapshot for this order was not saved"
+msgstr "Возврат недоступен: для этого заказа не сохранён фискальный snapshot"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_only_full_snapshot_supported"
+msgid "Only a full refund that exactly matches the current refundable amount can be sent from the site"
+msgstr "С сайта можно отправить только полный возврат, который точно совпадает с текущим доступным остатком к возврату"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_bundle_rebuild_required"
+msgid "This refund bundle must be rebuilt in 1C before sending it to Sber"
+msgstr "Для этого возврата orderBundle нужно пересобрать в 1С перед отправкой в Сбер"

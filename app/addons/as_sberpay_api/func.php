@@ -61,8 +61,10 @@ function fn_as_sberpay_api_ensure_meta_table()
  */
 function fn_as_sberpay_api_get_named_value(array $items, $name)
 {
+    $name = (string) $name;
+
     foreach ($items as $item) {
-        if (($item['name'] ?? '') === $name) {
+        if ((string) ($item['name'] ?? '') === $name) {
             return (string) ($item['value'] ?? '');
         }
     }
@@ -144,6 +146,51 @@ function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gatewa
 }
 
 /**
+ * Формирует pp_response на основе ответа getOrderStatusExtended.
+ */
+function fn_as_sberpay_api_build_response($response, $processor)
+{
+    $status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
+    $pai = !empty($response['paymentAmountInfo']) ? $response['paymentAmountInfo'] : [];
+
+    if ($status === 1 || $status === 2) {
+        return [
+            'order_status'      => $processor->getConfirmedStatus(),
+            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
+            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
+            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
+            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
+        ];
+    }
+
+    if ($status === 4) {
+        return [
+            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
+            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
+            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
+            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
+        ];
+    }
+
+    if ($status === 3) {
+        return [
+            'order_status'      => 'F',
+            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
+            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
+            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
+            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
+        ];
+    }
+
+    return [
+        'order_status' => 'F',
+        'reason_text'  => !empty($response['actionCodeDescription'])
+            ? $response['actionCodeDescription']
+            : (!empty($response['errorMessage']) ? $response['errorMessage'] : 'Оплата не прошла'),
+    ];
+}
+
+/**
  * Сохраняет служебные данные возврата, не затрагивая базовую мету платежа.
  */
 function fn_as_sberpay_api_save_refund_meta($order_id, array $refund_meta)
@@ -157,6 +204,184 @@ function fn_as_sberpay_api_save_refund_meta($order_id, array $refund_meta)
             return $value !== '' && $value !== null;
         }),
     ]);
+}
+
+/**
+ * Сохраняет неизменяемый snapshot фискальной корзины, который ушёл в Сбер при оплате.
+ */
+function fn_as_sberpay_api_save_fiscal_snapshot($order_id, array $order_info, array $register_context, $gateway_order_id)
+{
+    $order_bundle = !empty($register_context['order_bundle']) && is_array($register_context['order_bundle'])
+        ? $register_context['order_bundle']
+        : [];
+
+    if (!$order_bundle || empty($gateway_order_id)) {
+        return;
+    }
+
+    $items = !empty($order_bundle['cartItems']['items']) && is_array($order_bundle['cartItems']['items'])
+        ? array_values($order_bundle['cartItems']['items'])
+        : [];
+
+    $amount_minor = isset($register_context['amount']) ? (int) $register_context['amount'] : (int) ($order_bundle['total'] ?? 0);
+
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'fiscal_snapshot' => [
+            'provider' => 'sber',
+            'snapshot_version' => 1,
+            'created_at' => TIME,
+            'order_id' => (int) $order_id,
+            'payment_id' => (int) ($order_info['payment_id'] ?? 0),
+            'company_id' => (int) ($order_info['company_id'] ?? 0),
+            'order_number' => (string) ($register_context['order_number'] ?? ''),
+            'gateway_order_id' => (string) $gateway_order_id,
+            'transaction_id' => (string) $gateway_order_id,
+            'amount_minor' => $amount_minor,
+            'paid_total_minor' => $amount_minor,
+            'refundable_total_minor' => $amount_minor,
+            'currency' => (string) ($order_info['secondary_currency'] ?? $order_info['currency'] ?? CART_PRIMARY_CURRENCY),
+            'order_bundle' => $order_bundle,
+            'company' => !empty($order_bundle['company']) && is_array($order_bundle['company']) ? $order_bundle['company'] : [],
+            'payments' => !empty($order_bundle['payments']) && is_array($order_bundle['payments']) ? array_values($order_bundle['payments']) : [],
+            'total' => (int) ($order_bundle['total'] ?? $amount_minor),
+            'items' => $items,
+        ],
+    ]);
+}
+
+/**
+ * Считает сумму товарных строк immutable snapshot в копейках.
+ */
+function fn_as_sberpay_api_get_snapshot_items_total_minor(array $snapshot)
+{
+    $items = !empty($snapshot['items']) && is_array($snapshot['items'])
+        ? array_values($snapshot['items'])
+        : [];
+
+    if (!$items && !empty($snapshot['order_bundle']['cartItems']['items']) && is_array($snapshot['order_bundle']['cartItems']['items'])) {
+        $items = array_values($snapshot['order_bundle']['cartItems']['items']);
+    }
+
+    $total_minor = 0;
+    foreach ($items as $item) {
+        $total_minor += (int) ($item['itemAmount'] ?? 0);
+    }
+
+    return $total_minor;
+}
+
+/**
+ * Возвращает refund-ready orderBundle на основе исходного snapshot
+ * только для безопасного полного возврата всей фискальной корзины.
+ *
+ * Если сумма возврата не совпадает с полной суммой snapshot, то безопасный bundle
+ * нельзя собрать без информации о ранее возвращённых строках.
+ */
+function fn_as_sberpay_api_build_refund_bundle_from_snapshot(array $snapshot, $target_amount_minor = null)
+{
+    $order_bundle = !empty($snapshot['order_bundle']) && is_array($snapshot['order_bundle'])
+        ? $snapshot['order_bundle']
+        : [];
+
+    if (!$order_bundle) {
+        return [];
+    }
+
+    $items = !empty($snapshot['items']) && is_array($snapshot['items'])
+        ? array_values($snapshot['items'])
+        : [];
+
+    if (!$items) {
+        $items = !empty($order_bundle['cartItems']['items']) && is_array($order_bundle['cartItems']['items'])
+            ? array_values($order_bundle['cartItems']['items'])
+            : [];
+    }
+
+    if (!$items) {
+        return [];
+    }
+
+    $source_total_minor = fn_as_sberpay_api_get_snapshot_items_total_minor([
+        'items' => $items,
+        'order_bundle' => $order_bundle,
+    ]);
+
+    $target_amount_minor = $target_amount_minor === null
+        ? $source_total_minor
+        : (int) $target_amount_minor;
+
+    if ($target_amount_minor <= 0 || $target_amount_minor !== $source_total_minor) {
+        return [];
+    }
+
+    $payment_type = 1;
+    if (!empty($snapshot['payments'][0]['type'])) {
+        $payment_type = (int) $snapshot['payments'][0]['type'];
+    } elseif (!empty($order_bundle['payments'][0]['type'])) {
+        $payment_type = (int) $order_bundle['payments'][0]['type'];
+    }
+
+    $order_bundle['receiptType'] = 'SELL_REFUND';
+    $order_bundle['company'] = !empty($snapshot['company']) && is_array($snapshot['company'])
+        ? $snapshot['company']
+        : (!empty($order_bundle['company']) && is_array($order_bundle['company']) ? $order_bundle['company'] : []);
+    $order_bundle['payments'] = [[
+        'type' => $payment_type > 0 ? $payment_type : 1,
+        'sum' => $target_amount_minor,
+    ]];
+    $order_bundle['total'] = $target_amount_minor;
+    $order_bundle['cartItems'] = ['items' => $items];
+
+    return $order_bundle;
+}
+
+/**
+ * Готовит блок данных, которого достаточно для прямого refund.do из 1С в Сбер.
+ */
+function fn_as_sberpay_api_build_refund_context(array $meta)
+{
+    $snapshot = !empty($meta['fiscal_snapshot']) && is_array($meta['fiscal_snapshot'])
+        ? $meta['fiscal_snapshot']
+        : [];
+
+    if (!$snapshot) {
+        return [];
+    }
+
+    $gateway_order_id = (string) ($meta['gateway_order_id'] ?? $snapshot['gateway_order_id'] ?? $snapshot['transaction_id'] ?? '');
+    $amount_minor = isset($snapshot['amount_minor']) ? (int) $snapshot['amount_minor'] : (int) ($snapshot['total'] ?? 0);
+    $refunded_amount_minor = isset($meta['refunded_amount']) ? (int) round((float) $meta['refunded_amount'] * 100) : 0;
+    $refundable_amount_minor = max(0, $amount_minor - $refunded_amount_minor);
+    $refund_order_bundle = fn_as_sberpay_api_build_refund_bundle_from_snapshot($snapshot, $refundable_amount_minor);
+    $has_snapshot_items = !empty($snapshot['items']) && is_array($snapshot['items']);
+    $can_refund_from_1c = $gateway_order_id !== '' && $refundable_amount_minor > 0 && $has_snapshot_items;
+    $needs_1c_bundle_rebuild = $can_refund_from_1c && empty($refund_order_bundle);
+
+    return [
+        'can_refund_from_1c' => $can_refund_from_1c,
+        'provider' => 'sber',
+        'refund_strategy' => 'direct_1c_to_sber',
+        'refund_method' => 'refund.do',
+        'order_number' => (string) ($snapshot['order_number'] ?? ''),
+        'gateway_order_id' => $gateway_order_id,
+        'transaction_id' => (string) ($snapshot['transaction_id'] ?? $gateway_order_id),
+        'md_order' => (string) ($meta['md_order'] ?? ''),
+        'bank_invoice_id' => (string) ($meta['bank_invoice_id'] ?? ''),
+        'currency' => (string) ($snapshot['currency'] ?? $meta['currency'] ?? ''),
+        'snapshot_version' => (int) ($snapshot['snapshot_version'] ?? 1),
+        'amount_minor' => $amount_minor,
+        'already_refunded_amount_minor' => $refunded_amount_minor,
+        'refundable_amount_minor' => $refundable_amount_minor,
+        'refund_order_bundle_ready' => !$needs_1c_bundle_rebuild,
+        'requires_bundle_rebuild_in_1c' => $needs_1c_bundle_rebuild,
+        'external_refund_id_prefix' => 'refund-' . (string) ($snapshot['order_id'] ?? '') . '-',
+        'external_refund_id_pattern' => 'refund-{order_id}-{unique_suffix}',
+        'company' => !empty($snapshot['company']) && is_array($snapshot['company']) ? $snapshot['company'] : [],
+        'payments' => !empty($snapshot['payments']) && is_array($snapshot['payments']) ? array_values($snapshot['payments']) : [],
+        'items' => !empty($snapshot['items']) && is_array($snapshot['items']) ? array_values($snapshot['items']) : [],
+        'order_bundle' => !empty($snapshot['order_bundle']) && is_array($snapshot['order_bundle']) ? $snapshot['order_bundle'] : [],
+        'refund_order_bundle' => $refund_order_bundle,
+    ];
 }
 
 /**
@@ -269,6 +494,11 @@ function fn_as_sberpay_api_get_order_info(&$order, $additional_data)
 
     $meta = fn_as_sberpay_api_get_payment_meta((int) $order['order_id']);
     if ($meta) {
+        $refund_context = fn_as_sberpay_api_build_refund_context($meta);
+        if ($refund_context) {
+            $meta['sber_refund_context'] = $refund_context;
+        }
+
         $order['sber_payment_meta'] = $meta;
     }
 }
@@ -290,7 +520,13 @@ function fn_as_sberpay_api_get_orders_post($params, &$orders)
     foreach ($orders as &$order) {
         $order_id = (int) ($order['order_id'] ?? 0);
         if ($order_id && isset($meta_map[$order_id])) {
-            $order['sber_payment_meta'] = $meta_map[$order_id];
+            $meta = $meta_map[$order_id];
+            $refund_context = fn_as_sberpay_api_build_refund_context($meta);
+            if ($refund_context) {
+                $meta['sber_refund_context'] = $refund_context;
+            }
+
+            $order['sber_payment_meta'] = $meta;
         }
     }
     unset($order);
