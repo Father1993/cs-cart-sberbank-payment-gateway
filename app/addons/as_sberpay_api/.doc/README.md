@@ -19,9 +19,12 @@ app/addons/as_sberpay_api/
 ├── addon.xml                          # Манифест аддона (scheme 3.0)
 ├── config.php                         # Конфигурация (пустой, обязателен)
 ├── init.php                           # Регистрация хуков
-├── func.php                           # Install/uninstall + хуки
+├── func.php                           # Install/uninstall, хуки, мета, snapshot, refund context, build_response
+├── controllers/
+│   └── backend/
+│       └── as_sberpay_api.php         # Возврат из админки (refund)
 ├── payments/
-│   └── as_sberpay_api.php             # Основной payment script
+│   └── as_sberpay_api.php             # Основной payment script (callback/return/register)
 ├── Tygh/
 │   └── Payments/
 │       └── Processors/
@@ -32,6 +35,8 @@ app/addons/as_sberpay_api/
 │   ├── sber-docs.md                   # Полная API-документация Сбера
 │   ├── register-do-docs.md            # Документация register.do от Сбера (не редактировать)
 │   ├── doReceipt.md                   # Документация doReceipt от Сбера (не редактировать)
+│   ├── refund_payment-sber.md         # Документация refund.do (Сбер)
+│   ├── keys_and_value_for_refund_order.md  # Поля orderBundle / возврат
 │   ├── API.md                         # Краткий справочник методов и форматов
 │   ├── FLOW.md                        # Потоки оплаты (диаграммы)
 │   └── SETTINGS.md                    # Настройки в админке
@@ -121,6 +126,20 @@ Callback может приходить повторно. Модуль прове
 - Одностадийные: `register.do` → оплата сразу
 - Двустадийные: `registerPreAuth.do` → холд → `deposit.do` (подтверждение)
 
+### 7. Неизменяемый fiscal snapshot и возвраты (`refund.do`)
+
+После успешного `register.do` (когда в запрос уходит фискальный `orderBundle`) модуль сохраняет в таблице **`?:sberpay_order_meta`** снимок корзины, ушедший в шлюз: **`fiscal_snapshot`** (исходный `order_bundle`, денормализованные `items`, суммы в копейках, `gateway_order_id`, `order_number` и т.д.). Это **канонический** источник для чека возврата при **полном** возврате остатка.
+
+- **`fn_as_sberpay_api_build_refund_bundle_from_snapshot()`** в `func.php` строит **`orderBundle` с `receiptType = SELL_REFUND`** только если сумма возврата **строго совпадает** с суммой строк snapshot. Иначе возвращается пустой массив: сайт **не** подставляет фискально неверный partial-bundle (нельзя оставить полный `cartItems`, а в `payments.sum`/`total` подставить только остаток без учёта уже возвращённых позиций).
+
+- **`fn_as_sberpay_api_build_refund_context()`** собирает блок **`sber_refund_context`** для внешних систем (в т.ч. 1С): флаги `refund_order_bundle_ready`, `requires_bundle_rebuild_in_1c`, готовый **`refund_order_bundle`** при безопасном полном возврате, эталонные **`items`/`order_bundle`**, суммы в копейках, шаблон **`externalRefundId`**. Блок подмешивается в заказ через хуки **`get_order_info`** и **`get_orders_post`** (попадает в REST API и вебхуки 1С).
+
+- **Возврат из админки** идёт тем же путём, что и контракт для 1С: при включённой отправке корзины (`send_order`) **`AsSberPayApi::refundOrder()`** подставляет `orderBundle` только из **snapshot** (`buildSafeFullRefundBundle`). Контроллер **`controllers/backend/as_sberpay_api.php`** заранее блокирует сценарии без snapshot, с несовпадением суммы заказа и **`refundable_amount_minor`**, а также когда сайт сигнализирует **`requires_bundle_rebuild_in_1c`**. Частичный остаточный возврат из админки в шлюз **не** отправляется — нужна пересборка чека (например, в 1С).
+
+- **Вспомогательная функция `fn_as_sberpay_api_build_response()`** (маппинг ответа `getOrderStatusExtended` в поля `payment_info`) объявлена в **`func.php`**, чтобы её можно было вызывать из backend-контроллера (payment script в админке не подключается).
+
+Подробности по полям возврата для интеграторов: **`keys_and_value_for_refund_order.md`**, **`refund_payment-sber.md`**.
+
 ---
 
 ## URL-ы API
@@ -192,6 +211,10 @@ var/logs/as_sberpay_api/sberpay_YYYY-MM.log
 
 - [ ] Успешный платёж (orderStatus = 2)
 - [ ] Первый чек сформирован как предоплата (`full_prepayment`)
+- [ ] В `?:sberpay_order_meta` появился **`fiscal_snapshot`** с `order_bundle`, `items`, `amount_minor`, `gateway_order_id`
+- [ ] В выгрузке заказа (REST/вебхук) есть **`sber_payment_meta.sber_refund_context`**: для полного остатка **`refund_order_bundle_ready`**, готовый **`refund_order_bundle`** с `SELL_REFUND`
+- [ ] Полный возврат из админки: в логе **`refundOrder`** тот же состав `cartItems`, что в snapshot; ответ `errorCode: 0`; повторный возврат блокируется
+- [ ] Сценарий с частичным возвратом: **`requires_bundle_rebuild_in_1c = true`**, админский refund с `send_order` не уходит в шлюз без готового bundle
 - [ ] Перевод заказа в `C` запускает `doReceipt`
 - [ ] Второй чек сформирован как полный расчёт (`full_payment`)
 - [ ] Неуспешный платёж (отмена на форме)
