@@ -417,7 +417,7 @@ class AsSberPayApi
      * @param array $order_info Заказ CS-Cart
      * @return array Ответ API
      */
-    public function doReceipt($order_info)
+    public function doReceipt($order_info, array $payment_meta = [])
     {
         $order_id = $order_info['order_id'] ?? 0;
 
@@ -438,7 +438,49 @@ class AsSberPayApi
             return [];
         }
 
-        $bundle = $this->buildOrderBundle($order_info, self::PM_FULL_PAYMENT);
+        if (!$payment_meta && $order_id > 0) {
+            $payment_meta = fn_as_sberpay_api_get_payment_meta((int) $order_id);
+        }
+
+        if (!empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded') {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped already succeeded');
+            return [];
+        }
+
+        $snapshot = !empty($payment_meta['fiscal_snapshot']) && is_array($payment_meta['fiscal_snapshot'])
+            ? $payment_meta['fiscal_snapshot']
+            : [];
+        if (!$snapshot) {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped missing fiscal snapshot');
+            return [];
+        }
+
+        $status_response = $this->getOrderStatusExtended($gateway_order_id);
+        if ($this->isError()) {
+            $this->log([
+                'order_id' => $order_id,
+                'gateway_order_id' => $gateway_order_id,
+                'error_code' => $this->error_code,
+                'error_text' => $this->error_text,
+            ], 'doReceipt: skipped status check error');
+
+            return [];
+        }
+
+        fn_as_sberpay_api_save_payment_meta((int) $order_id, $status_response, $gateway_order_id);
+
+        $gateway_status = isset($status_response['orderStatus']) ? (int) $status_response['orderStatus'] : -1;
+        if (!in_array($gateway_status, [1, 2], true)) {
+            $this->log([
+                'order_id' => $order_id,
+                'gateway_order_id' => $gateway_order_id,
+                'order_status' => $gateway_status,
+            ], 'doReceipt: skipped unpaid order');
+
+            return [];
+        }
+
+        $bundle = $this->buildOrderBundleFromSnapshot($snapshot, self::PM_FULL_PAYMENT, 'SELL', 2);
         if (!$bundle) {
             $this->log(['order_id' => $order_id], 'doReceipt: skipped empty bundle');
             return [];
@@ -463,6 +505,22 @@ class AsSberPayApi
         $ofd_base_url = $this->test_mode ? self::TEST_OFD_URL : self::PROD_OFD_URL;
         $response = $this->request('doReceipt', $args, $ofd_base_url);
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
+
+        $is_success = !$this->isError()
+            && isset($response['errorCode'])
+            && (string) $response['errorCode'] === '0';
+
+        fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
+            'status' => $is_success ? 'succeeded' : 'failed',
+            'gateway_order_id' => $gateway_order_id,
+            'error_code' => (string) ($response['errorCode'] ?? $this->error_code),
+            'error_message' => (string) ($response['errorMessage'] ?? $this->error_text),
+            'updated_at' => TIME,
+        ]);
+
+        if ($is_success) {
+            fn_as_sberpay_api_save_closing_receipt_snapshot((int) $order_id, $snapshot, $bundle, $gateway_order_id);
+        }
 
         return $response;
     }
@@ -677,7 +735,7 @@ class AsSberPayApi
      * @param array $order_info Заказ CS-Cart
      * @return array|null
      */
-    private function buildOrderBundle($order_info, $payment_method = null, $receipt_type = 'SELL')
+    private function buildOrderBundle($order_info, $payment_method = null, $receipt_type = 'SELL', $payment_type = 1)
     {
         $pm = $payment_method ?? $this->payment_method;
         $total_kopecks = $this->formatAmount($order_info['total']);
@@ -768,13 +826,68 @@ class AsSberPayApi
             ],
             'payments' => [
                 [
-                    'type' => 1,
+                    'type' => (int) $payment_type > 0 ? (int) $payment_type : 1,
                     'sum' => $total_kopecks,
                 ],
             ],
             'total' => $total_kopecks,
             'cartItems' => ['items' => $items],
         ];
+    }
+
+    /**
+     * Переиспользует snapshot первого чека для закрывающего чека полного расчёта.
+     */
+    private function buildOrderBundleFromSnapshot(array $snapshot, $payment_method = null, $receipt_type = 'SELL', $payment_type = 1)
+    {
+        $order_bundle = !empty($snapshot['order_bundle']) && is_array($snapshot['order_bundle'])
+            ? $snapshot['order_bundle']
+            : [];
+
+        if (!$order_bundle) {
+            return [];
+        }
+
+        $items = !empty($snapshot['items']) && is_array($snapshot['items'])
+            ? array_values($snapshot['items'])
+            : [];
+
+        if (!$items && !empty($order_bundle['cartItems']['items']) && is_array($order_bundle['cartItems']['items'])) {
+            $items = array_values($order_bundle['cartItems']['items']);
+        }
+
+        if (!$items) {
+            return [];
+        }
+
+        $pm = $payment_method ?? $this->payment_method;
+        foreach ($items as &$item) {
+            $item['paymentMethod'] = $pm;
+        }
+        unset($item);
+
+        $total_kopecks = isset($order_bundle['total'])
+            ? (int) $order_bundle['total']
+            : fn_as_sberpay_api_get_snapshot_items_total_minor([
+                'items' => $items,
+                'order_bundle' => $order_bundle,
+            ]);
+
+        $order_bundle['ffdVersion'] = !empty($order_bundle['ffdVersion'])
+            ? (string) $order_bundle['ffdVersion']
+            : (($this->ffd_version === 'v1_2') ? '1.2' : '1.05');
+        $order_bundle['receiptType'] = (string) $receipt_type;
+        $order_bundle['company'] = !empty($snapshot['company']) && is_array($snapshot['company'])
+            ? $snapshot['company']
+            : (!empty($order_bundle['company']) && is_array($order_bundle['company']) ? $order_bundle['company'] : []);
+        $order_bundle['payments'] = [[
+            'type' => (int) $payment_type > 0 ? (int) $payment_type : 1,
+            'sum' => $total_kopecks,
+        ]];
+        $order_bundle['total'] = $total_kopecks;
+        $order_bundle['cartItems'] = ['items' => $items];
+
+        return $order_bundle;
     }
 
     /**

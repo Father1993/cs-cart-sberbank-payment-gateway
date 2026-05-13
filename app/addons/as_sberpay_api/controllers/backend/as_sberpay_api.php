@@ -51,8 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($processor->usesOrderBundle()) {
             $order_total_minor = (int) round(fn_format_price_by_currency($order_info['total'] ?? 0) * 100);
+            $active_snapshot = fn_as_sberpay_api_get_active_fiscal_snapshot($payment_meta);
 
-            if (empty($payment_meta['fiscal_snapshot']) || !$refund_context) {
+            if (empty($active_snapshot) || !$refund_context) {
                 fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_missing_snapshot'));
 
                 return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];

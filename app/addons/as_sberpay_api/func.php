@@ -250,6 +250,61 @@ function fn_as_sberpay_api_save_fiscal_snapshot($order_id, array $order_info, ar
 }
 
 /**
+ * Сохраняет служебные данные закрывающего чека.
+ */
+function fn_as_sberpay_api_save_closing_receipt_meta($order_id, array $closing_receipt_meta)
+{
+    if (!$closing_receipt_meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'closing_receipt' => array_filter($closing_receipt_meta, static function ($value) {
+            return $value !== '' && $value !== null;
+        }),
+    ]);
+}
+
+/**
+ * Сохраняет snapshot закрывающего чека полного расчёта.
+ */
+function fn_as_sberpay_api_save_closing_receipt_snapshot($order_id, array $source_snapshot, array $order_bundle, $gateway_order_id)
+{
+    if (!$order_bundle || empty($gateway_order_id)) {
+        return;
+    }
+
+    $items = !empty($order_bundle['cartItems']['items']) && is_array($order_bundle['cartItems']['items'])
+        ? array_values($order_bundle['cartItems']['items'])
+        : [];
+    $payments = !empty($order_bundle['payments']) && is_array($order_bundle['payments'])
+        ? array_values($order_bundle['payments'])
+        : [];
+    $amount_minor = isset($order_bundle['total']) ? (int) $order_bundle['total'] : 0;
+
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'closing_receipt_snapshot' => [
+            'provider' => 'sber',
+            'snapshot_version' => 1,
+            'created_at' => TIME,
+            'order_id' => (int) $order_id,
+            'gateway_order_id' => (string) $gateway_order_id,
+            'transaction_id' => (string) $gateway_order_id,
+            'amount_minor' => $amount_minor,
+            'currency' => (string) ($source_snapshot['currency'] ?? ''),
+            'order_number' => (string) ($source_snapshot['order_number'] ?? ''),
+            'receipt_type' => (string) ($order_bundle['receiptType'] ?? 'SELL'),
+            'order_bundle' => $order_bundle,
+            'company' => !empty($order_bundle['company']) && is_array($order_bundle['company']) ? $order_bundle['company'] : [],
+            'payments' => $payments,
+            'total' => $amount_minor,
+            'items' => $items,
+            'status' => 'succeeded',
+        ],
+    ]);
+}
+
+/**
  * Считает сумму товарных строк immutable snapshot в копейках.
  */
 function fn_as_sberpay_api_get_snapshot_items_total_minor(array $snapshot)
@@ -268,6 +323,22 @@ function fn_as_sberpay_api_get_snapshot_items_total_minor(array $snapshot)
     }
 
     return $total_minor;
+}
+
+/**
+ * Возвращает актуальную фискальную основу заказа.
+ */
+function fn_as_sberpay_api_get_active_fiscal_snapshot(array $meta)
+{
+    if (!empty($meta['closing_receipt_snapshot']) && is_array($meta['closing_receipt_snapshot'])) {
+        return $meta['closing_receipt_snapshot'];
+    }
+
+    if (!empty($meta['fiscal_snapshot']) && is_array($meta['fiscal_snapshot'])) {
+        return $meta['fiscal_snapshot'];
+    }
+
+    return [];
 }
 
 /**
@@ -340,9 +411,7 @@ function fn_as_sberpay_api_build_refund_bundle_from_snapshot(array $snapshot, $t
  */
 function fn_as_sberpay_api_build_refund_context(array $meta)
 {
-    $snapshot = !empty($meta['fiscal_snapshot']) && is_array($meta['fiscal_snapshot'])
-        ? $meta['fiscal_snapshot']
-        : [];
+    $snapshot = fn_as_sberpay_api_get_active_fiscal_snapshot($meta);
 
     if (!$snapshot) {
         return [];
@@ -453,6 +522,7 @@ function fn_as_sberpay_api_change_order_status_post(
     }
 
     $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
+    $payment_meta = fn_as_sberpay_api_get_payment_meta((int) $order_id);
 
     if ($processor->isLogging()) {
         $processor->log([
@@ -464,7 +534,15 @@ function fn_as_sberpay_api_change_order_status_post(
         ], 'change_order_status_post');
     }
 
-    $processor->doReceipt($order_info);
+    if (!empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded') {
+        if ($processor->isLogging()) {
+            $processor->log(['order_id' => $order_id], 'change_order_status_post: closing receipt already succeeded');
+        }
+
+        return;
+    }
+
+    $processor->doReceipt($order_info, $payment_meta);
 }
 
 /**
