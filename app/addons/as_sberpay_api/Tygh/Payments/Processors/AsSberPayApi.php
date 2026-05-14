@@ -507,8 +507,14 @@ class AsSberPayApi
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
 
         $is_success = !$this->isError()
-            && isset($response['errorCode'])
-            && (string) $response['errorCode'] === '0';
+            && (
+                (isset($response['errorCode']) && (string) $response['errorCode'] === '0')
+                || (
+                    !empty($response['orderId'])
+                    && !empty($response['orderNumber'])
+                    && !empty($response['message'])
+                )
+            );
 
         fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
             'status' => $is_success ? 'succeeded' : 'failed',
