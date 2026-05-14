@@ -692,9 +692,12 @@ class AsSberPayApi
             $payment_meta = fn_as_sberpay_api_get_payment_meta($order_id);
         }
 
-        if (empty($payment_meta['fiscal_snapshot']) || !is_array($payment_meta['fiscal_snapshot'])) {
+        $active_snapshot = fn_as_sberpay_api_get_active_fiscal_snapshot($payment_meta);
+        if (!$active_snapshot) {
             $this->error_code = 996;
-            $this->error_text = 'Refund skipped: fiscal snapshot is missing';
+            $this->error_text = !empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded'
+                ? 'Refund skipped: closing receipt snapshot is missing'
+                : 'Refund skipped: fiscal snapshot is missing';
 
             return [];
         }

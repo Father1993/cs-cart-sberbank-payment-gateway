@@ -330,8 +330,15 @@ function fn_as_sberpay_api_get_snapshot_items_total_minor(array $snapshot)
  */
 function fn_as_sberpay_api_get_active_fiscal_snapshot(array $meta)
 {
+    $closing_receipt_succeeded = !empty($meta['closing_receipt']['status'])
+        && $meta['closing_receipt']['status'] === 'succeeded';
+
     if (!empty($meta['closing_receipt_snapshot']) && is_array($meta['closing_receipt_snapshot'])) {
         return $meta['closing_receipt_snapshot'];
+    }
+
+    if ($closing_receipt_succeeded) {
+        return [];
     }
 
     if (!empty($meta['fiscal_snapshot']) && is_array($meta['fiscal_snapshot'])) {
@@ -412,9 +419,20 @@ function fn_as_sberpay_api_build_refund_bundle_from_snapshot(array $snapshot, $t
 function fn_as_sberpay_api_build_refund_context(array $meta)
 {
     $snapshot = fn_as_sberpay_api_get_active_fiscal_snapshot($meta);
+    $closing_receipt_succeeded = !empty($meta['closing_receipt']['status'])
+        && $meta['closing_receipt']['status'] === 'succeeded';
 
     if (!$snapshot) {
-        return [];
+        return $closing_receipt_succeeded
+            ? [
+                'provider' => 'sber',
+                'refund_order_bundle_ready' => false,
+                'requires_bundle_rebuild_in_1c' => true,
+                'missing_closing_receipt_snapshot' => true,
+                'refund_strategy' => 'direct_1c_to_sber',
+                'refund_method' => 'refund.do',
+            ]
+            : [];
     }
 
     $gateway_order_id = (string) ($meta['gateway_order_id'] ?? $snapshot['gateway_order_id'] ?? $snapshot['transaction_id'] ?? '');
@@ -443,6 +461,7 @@ function fn_as_sberpay_api_build_refund_context(array $meta)
         'refundable_amount_minor' => $refundable_amount_minor,
         'refund_order_bundle_ready' => !$needs_1c_bundle_rebuild,
         'requires_bundle_rebuild_in_1c' => $needs_1c_bundle_rebuild,
+        'missing_closing_receipt_snapshot' => false,
         'external_refund_id_prefix' => 'refund-' . (string) ($snapshot['order_id'] ?? '') . '-',
         'external_refund_id_pattern' => 'refund-{order_id}-{unique_suffix}',
         'company' => !empty($snapshot['company']) && is_array($snapshot['company']) ? $snapshot['company'] : [],

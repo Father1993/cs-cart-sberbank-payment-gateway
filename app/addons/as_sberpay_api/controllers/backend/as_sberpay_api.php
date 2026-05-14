@@ -59,6 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
             }
 
+            if (!empty($refund_context['missing_closing_receipt_snapshot'])) {
+                fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_bundle_rebuild_required'));
+
+                return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+            }
+
             if ($order_total_minor !== (int) ($refund_context['refundable_amount_minor'] ?? 0)) {
                 fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_only_full_snapshot_supported'));
 
