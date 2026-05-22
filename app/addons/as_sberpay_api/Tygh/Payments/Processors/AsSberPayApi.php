@@ -447,6 +447,29 @@ class AsSberPayApi
             return [];
         }
 
+        $ofd_response = $this->getReceiptStatus($gateway_order_id);
+        if (!$this->isError()) {
+            $closing_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
+            if ($closing_receipt_status !== null) {
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
+                        'status' => $closing_receipt_status === 3 ? 'succeeded' : 'pending',
+                        'gateway_order_id' => $gateway_order_id,
+                        'source' => 'ofd_getReceiptStatus',
+                        'ofd_receipt_status' => $closing_receipt_status,
+                        'updated_at' => TIME,
+                    ]);
+                }
+
+                $this->log([
+                    'order_id' => $order_id,
+                    'closing_receipt_status' => $closing_receipt_status,
+                ], 'doReceipt: skipped closing receipt exists in OFD');
+
+                return [];
+            }
+        }
+
         $snapshot = !empty($payment_meta['fiscal_snapshot']) && is_array($payment_meta['fiscal_snapshot'])
             ? $payment_meta['fiscal_snapshot']
             : [];
@@ -612,6 +635,49 @@ class AsSberPayApi
     // =========================================================================
     //  Приватные методы
     // =========================================================================
+
+    /**
+     * Итоговый статус закрывающего sell-чека в OFD или null, если doReceipt нужен.
+     *
+     * @param array $response Ответ getReceiptStatus
+     * @return int|null receiptStatus (1–3) или null
+     */
+    private function getClosingSellReceiptStatus(array $response)
+    {
+        $receipts = !empty($response['receipts']) && is_array($response['receipts']) ? $response['receipts'] : [];
+        $sell_receipts = [];
+
+        foreach ($receipts as $receipt) {
+            if (!is_array($receipt)) {
+                continue;
+            }
+
+            if (strtolower((string) ($receipt['receiptType'] ?? '')) === 'sell') {
+                $sell_receipts[] = $receipt;
+            }
+        }
+
+        if (count($sell_receipts) < 2) {
+            return null;
+        }
+
+        $extra_receipts = array_slice($sell_receipts, 1);
+
+        foreach ($extra_receipts as $receipt) {
+            if ((int) ($receipt['receiptStatus'] ?? -1) === 3) {
+                return 3;
+            }
+        }
+
+        foreach ($extra_receipts as $receipt) {
+            $status = (int) ($receipt['receiptStatus'] ?? -1);
+            if (in_array($status, [1, 2], true)) {
+                return $status;
+            }
+        }
+
+        return null;
+    }
 
     /**
      * HTTP POST запрос к API Сбера (application/json).

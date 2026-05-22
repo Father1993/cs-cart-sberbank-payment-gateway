@@ -553,9 +553,9 @@ function fn_as_sberpay_api_change_order_status_post(
         ], 'change_order_status_post');
     }
 
-    if (!empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded') {
+    if (in_array($payment_meta['closing_receipt']['status'] ?? '', ['succeeded', 'pending'], true)) {
         if ($processor->isLogging()) {
-            $processor->log(['order_id' => $order_id], 'change_order_status_post: closing receipt already succeeded');
+            $processor->log(['order_id' => $order_id], 'change_order_status_post: closing receipt already known');
         }
 
         return;

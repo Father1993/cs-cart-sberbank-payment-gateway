@@ -190,10 +190,12 @@ Guard-проверки:
   1. status_to === 'C'?             → нет: exit
   2. payment_info.transaction_id?   → нет: exit
   3. processor = as_sberpay_api.php?→ нет: exit
+  4. closing_receipt succeeded (meta)? → да: exit
          │
          ▼
 AsSberPayApi::doReceipt($order_info)
-  buildOrderBundle($order_info, PM_FULL_PAYMENT)
+  getReceiptStatus (OFD) → любой sell после предоплаты с receiptStatus 1/2/3? → skip
+  buildOrderBundleFromSnapshot($snapshot, PM_FULL_PAYMENT, 'SELL', 2)
   POST doReceipt
   URL: /partner/api/ofd/v1/doReceipt
          │
