@@ -442,15 +442,19 @@ class AsSberPayApi
             $payment_meta = fn_as_sberpay_api_get_payment_meta((int) $order_id);
         }
 
-        if (!empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded') {
+        if (!fn_as_sberpay_api_is_ofd_check_only_debug()
+            && !empty($payment_meta['closing_receipt']['status'])
+            && $payment_meta['closing_receipt']['status'] === 'succeeded'
+        ) {
             $this->log(['order_id' => $order_id], 'doReceipt: skipped already succeeded');
             return [];
         }
 
         $ofd_response = $this->getReceiptStatus($gateway_order_id);
+        $closing_receipt_status = null;
         if (!$this->isError()) {
             $closing_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
-            if ($closing_receipt_status !== null) {
+            if (!fn_as_sberpay_api_is_ofd_check_only_debug() && $closing_receipt_status !== null) {
                 if ($order_id > 0) {
                     fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
                         'status' => $closing_receipt_status === 3 ? 'succeeded' : 'pending',
@@ -468,6 +472,11 @@ class AsSberPayApi
 
                 return [];
             }
+        }
+
+        if (fn_as_sberpay_api_is_ofd_check_only_debug()) {
+            $this->logOfdCheckOnlyDebug((int) $order_id, $ofd_response, $closing_receipt_status);
+            return [];
         }
 
         $snapshot = !empty($payment_meta['fiscal_snapshot']) && is_array($payment_meta['fiscal_snapshot'])
@@ -635,6 +644,42 @@ class AsSberPayApi
     // =========================================================================
     //  Приватные методы
     // =========================================================================
+
+    /**
+     * TEMP DEBUG: сводка getReceiptStatus без отправки doReceipt.
+     */
+    private function logOfdCheckOnlyDebug($order_id, array $ofd_response, $closing_receipt_status)
+    {
+        $sell_summary = [];
+        $receipts = !empty($ofd_response['receipts']) && is_array($ofd_response['receipts']) ? $ofd_response['receipts'] : [];
+
+        foreach ($receipts as $index => $receipt) {
+            if (!is_array($receipt) || strtolower((string) ($receipt['receiptType'] ?? '')) !== 'sell') {
+                continue;
+            }
+
+            $sell_summary[] = [
+                'index' => $index,
+                'receiptStatus' => (int) ($receipt['receiptStatus'] ?? -1),
+                'operationType' => (string) ($receipt['operationType'] ?? ''),
+                'receiptId' => (string) ($receipt['receiptId'] ?? ''),
+                'timestamp' => (string) ($receipt['timestamp'] ?? ''),
+            ];
+        }
+
+        $this->log([
+            'order_id' => $order_id,
+            'ofd_check_only' => true,
+            'getReceiptStatus_error' => $this->isError(),
+            'error_code' => $this->error_code,
+            'error_text' => $this->error_text,
+            'sell_receipts_count' => count($sell_summary),
+            'sell_receipts' => $sell_summary,
+            'closing_sell_status' => $closing_receipt_status,
+            '1c_closing_detected' => $closing_receipt_status !== null,
+            'site_would_send_doReceipt' => $closing_receipt_status === null && !$this->isError(),
+        ], 'doReceipt: DEBUG ofd check only, send disabled');
+    }
 
     /**
      * Итоговый статус закрывающего sell-чека в OFD или null, если doReceipt нужен.

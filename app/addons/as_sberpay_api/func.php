@@ -5,6 +5,15 @@ if (!defined('BOOTSTRAP')) {
 }
 
 /**
+ * TEMP DEBUG: при статусе C только getReceiptStatus + лог, без doReceipt (проверка закрытия из 1С).
+ * Вернуть false после теста.
+ */
+function fn_as_sberpay_api_is_ofd_check_only_debug()
+{
+    return true;
+}
+
+/**
  * Установка: регистрирует payment processor в БД.
  */
 function fn_as_sberpay_api_install()
@@ -553,7 +562,9 @@ function fn_as_sberpay_api_change_order_status_post(
         ], 'change_order_status_post');
     }
 
-    if (in_array($payment_meta['closing_receipt']['status'] ?? '', ['succeeded', 'pending'], true)) {
+    if (!fn_as_sberpay_api_is_ofd_check_only_debug()
+        && in_array($payment_meta['closing_receipt']['status'] ?? '', ['succeeded', 'pending'], true)
+    ) {
         if ($processor->isLogging()) {
             $processor->log(['order_id' => $order_id], 'change_order_status_post: closing receipt already known');
         }
