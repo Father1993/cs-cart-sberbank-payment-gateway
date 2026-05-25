@@ -321,7 +321,7 @@ class AsSberPayApi
      *
      * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, message?: string}
      */
-    public function refreshClosingReceiptMeta(int $order_id, string $gateway_order_id)
+    public function refreshClosingReceiptMeta(int $order_id, string $gateway_order_id, $update_source = 'ofd_poll_doreceipt')
     {
         if ($gateway_order_id === '') {
             return ['ok' => false, 'message' => 'Missing gateway order id'];
@@ -343,6 +343,7 @@ class AsSberPayApi
                 'status' => $status,
                 'gateway_order_id' => $gateway_order_id,
                 'source' => 'ofd_getReceiptStatus',
+                'update_source' => (string) $update_source,
                 'ofd_receipt_status' => $ofd_receipt_status,
                 'updated_at' => TIME,
             ]);
@@ -353,6 +354,7 @@ class AsSberPayApi
             'gateway_order_id' => $gateway_order_id,
             'ofd_receipt_status' => $ofd_receipt_status,
             'status' => $status,
+            'update_source' => $update_source,
         ], 'refreshClosingReceiptMeta');
 
         return [
@@ -494,7 +496,7 @@ class AsSberPayApi
             return [];
         }
 
-        $sync = $this->refreshClosingReceiptMeta((int) $order_id, (string) $gateway_order_id);
+        $sync = $this->refreshClosingReceiptMeta((int) $order_id, (string) $gateway_order_id, 'ofd_poll_doreceipt');
         if (!empty($sync['ok']) && !empty($sync['found'])
             && in_array($sync['status'] ?? '', ['succeeded', 'pending'], true)
         ) {
@@ -578,6 +580,8 @@ class AsSberPayApi
         fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
             'status' => $is_success ? 'succeeded' : 'failed',
             'gateway_order_id' => $gateway_order_id,
+            'source' => 'doReceipt',
+            'update_source' => 'doReceipt',
             'error_code' => (string) ($response['errorCode'] ?? $this->error_code),
             'error_message' => (string) ($response['errorMessage'] ?? $this->error_text),
             'updated_at' => TIME,

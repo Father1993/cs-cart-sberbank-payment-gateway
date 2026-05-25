@@ -581,6 +581,136 @@ function fn_as_sberpay_api_get_payment_processors_post($lang_code, &$processors)
 }
 
 /**
+ * Человекочитаемая метка источника данных о закрывающем чеке.
+ */
+function fn_as_sberpay_api_get_receipt_update_source_label($update_source = '', $legacy_source = '')
+{
+    $key = (string) $update_source;
+    if ($key === '' && (string) $legacy_source === 'ofd_getReceiptStatus') {
+        $key = 'ofd_getReceiptStatus';
+    }
+
+    $lang_keys = [
+        'admin_refresh' => 'receipt_source_admin_refresh',
+        'ofd_poll_doreceipt' => 'receipt_source_auto_completed',
+        'doReceipt' => 'receipt_source_do_receipt',
+        'ofd_getReceiptStatus' => 'receipt_source_ofd_legacy',
+    ];
+
+    if (isset($lang_keys[$key])) {
+        return (string) __(
+            'addons.as_sberpay_api.' . $lang_keys[$key]
+        );
+    }
+
+    return '';
+}
+
+/**
+ * Метка OFD receiptStatus для UI.
+ */
+function fn_as_sberpay_api_get_receipt_ofd_status_label($ofd_receipt_status)
+{
+    $ofd_receipt_status = (int) $ofd_receipt_status;
+    if ($ofd_receipt_status < 1 || $ofd_receipt_status > 5) {
+        return '';
+    }
+
+    return (string) __(
+        'addons.as_sberpay_api.receipt_ofd_status_' . $ofd_receipt_status
+    );
+}
+
+/**
+ * CSS-класс label для normalized closing receipt status.
+ */
+function fn_as_sberpay_api_get_receipt_status_label_class($status)
+{
+    $map = [
+        'succeeded' => 'label-success',
+        'pending' => 'label-warning',
+        'failed' => 'label-danger',
+    ];
+
+    return $map[(string) $status] ?? '';
+}
+
+/**
+ * Готовит блок UI статусов фискальных чеков для orders.details.
+ */
+function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
+{
+    if (empty($order['payment_id']) || empty($order['payment_info']['transaction_id'])) {
+        return ['show' => false];
+    }
+
+    $processor_data = fn_get_processor_data((int) $order['payment_id']);
+    if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+        return ['show' => false];
+    }
+
+    $has_fiscal_data = !empty($meta['fiscal_snapshot'])
+        || !empty($meta['closing_receipt'])
+        || (!empty($meta['refund']['status']) && $meta['refund']['status'] === 'succeeded');
+
+    if (!$has_fiscal_data) {
+        return ['show' => false];
+    }
+
+    $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
+    $closing = !empty($meta['closing_receipt']) && is_array($meta['closing_receipt'])
+        ? $meta['closing_receipt']
+        : [];
+    $closing_status = (string) ($closing['status'] ?? 'not_sent');
+    $status_lang_key = 'receipt_status_' . $closing_status;
+    $allowed_status_keys = [
+        'receipt_status_not_sent',
+        'receipt_status_pending',
+        'receipt_status_succeeded',
+        'receipt_status_failed',
+    ];
+    if (!in_array($status_lang_key, $allowed_status_keys, true)) {
+        $status_lang_key = 'receipt_status_not_sent';
+        $closing_status = 'not_sent';
+    }
+
+    $updated_at = (int) ($closing['updated_at'] ?? 0);
+    $source_label = fn_as_sberpay_api_get_receipt_update_source_label(
+        $closing['update_source'] ?? '',
+        $closing['source'] ?? ''
+    );
+
+    return [
+        'show' => true,
+        'can_refresh' => $processor->usesOrderBundle(),
+        'refresh_href' => 'as_sberpay_api.receipt_status?order_id=' . (int) $order['order_id'],
+        'prepayment' => !empty($meta['fiscal_snapshot']) ? [
+            'source_label' => (string) __('addons.as_sberpay_api.receipt_prepayment_source'),
+        ] : [],
+        'closing' => [
+            'status' => $closing_status,
+            'status_label' => (string) __('addons.as_sberpay_api.' . $status_lang_key),
+            'label_class' => fn_as_sberpay_api_get_receipt_status_label_class($closing_status),
+            'ofd_label' => fn_as_sberpay_api_get_receipt_ofd_status_label($closing['ofd_receipt_status'] ?? 0),
+            'updated_at_formatted' => $updated_at
+                ? fn_date_format(
+                    $updated_at,
+                    \Tygh\Registry::get('settings.Appearance.date_format') . ', '
+                    . \Tygh\Registry::get('settings.Appearance.time_format')
+                )
+                : '',
+            'source_label' => $source_label,
+            'error_message' => (string) ($closing['error_message'] ?? ''),
+        ],
+        'refund' => (!empty($meta['refund']['status']) && $meta['refund']['status'] === 'succeeded') ? [
+            'status_label' => (string) __('addons.as_sberpay_api.receipt_refund_succeeded'),
+            'label_class' => 'label-success',
+        ] : [],
+        'help' => (string) __('addons.as_sberpay_api.receipt_status_help'),
+    ];
+}
+
+/**
  * Добавляет метаданные платежа Сбера в детальную информацию о заказе.
  */
 function fn_as_sberpay_api_get_order_info(&$order, $additional_data)
@@ -597,6 +727,7 @@ function fn_as_sberpay_api_get_order_info(&$order, $additional_data)
         }
 
         $order['sber_payment_meta'] = $meta;
+        $order['sber_receipt_status_view'] = fn_as_sberpay_api_build_receipt_status_view($order, $meta);
     }
 }
 

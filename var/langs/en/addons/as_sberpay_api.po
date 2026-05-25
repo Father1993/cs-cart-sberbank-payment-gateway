@@ -301,13 +301,53 @@ msgctxt "Languages::addons.as_sberpay_api.receipt_status_title"
 msgid "Fiscal receipts"
 msgstr "Fiscal receipts"
 
+msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_title"
+msgid "Prepayment receipt"
+msgstr "Prepayment receipt"
+
 msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_registered"
-msgid "Prepayment receipt: registered at checkout"
-msgstr "Prepayment receipt: registered at checkout"
+msgid "Registered at checkout"
+msgstr "registered at checkout"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_source"
+msgid "Source: saved from register.do (fiscal snapshot at payment)"
+msgstr "Source: saved from register.do (fiscal snapshot at payment)"
 
 msgctxt "Languages::addons.as_sberpay_api.receipt_closing_title"
 msgid "Closing receipt"
 msgstr "Closing receipt"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_refund_title"
+msgid "Refund receipt"
+msgstr "Refund receipt"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_last_check"
+msgid "Last status check"
+msgstr "Last status check"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_data_source"
+msgid "Data source"
+msgstr "Data source"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_help"
+msgid "Closing receipt status is stored locally and updated automatically when the order becomes Completed, after doReceipt, or when you click the refresh button (OFD getReceiptStatus)."
+msgstr "Closing receipt status is stored locally and updated automatically when the order becomes Completed, after doReceipt, or when you click the refresh button (OFD getReceiptStatus)."
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_admin_refresh"
+msgid "Manual request from admin (OFD getReceiptStatus)"
+msgstr "Manual request from admin (OFD getReceiptStatus)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_auto_completed"
+msgid "Automatic check when order status changed to Completed (OFD getReceiptStatus before doReceipt)"
+msgstr "Automatic check when order status changed to Completed (OFD getReceiptStatus before doReceipt)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_do_receipt"
+msgid "After sending closing receipt (doReceipt)"
+msgstr "After sending closing receipt (doReceipt)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_ofd_legacy"
+msgid "OFD getReceiptStatus (saved earlier)"
+msgstr "OFD getReceiptStatus (saved earlier, source not specified)"
 
 msgctxt "Languages::addons.as_sberpay_api.receipt_status_not_sent"
 msgid "Not sent"
@@ -346,12 +386,12 @@ msgid "OFD status: receipt send attempts exhausted"
 msgstr "OFD status: receipt send attempts exhausted"
 
 msgctxt "Languages::addons.as_sberpay_api.receipt_refund_succeeded"
-msgid "Refund receipt: succeeded"
-msgstr "Refund receipt: succeeded"
+msgid "Succeeded"
+msgstr "Succeeded"
 
 msgctxt "Languages::addons.as_sberpay_api.refresh_receipt_status"
-msgid "Refresh receipt status"
-msgstr "Refresh receipt status"
+msgid "Request status from OFD"
+msgstr "Request status from OFD"
 
 msgctxt "Languages::addons.as_sberpay_api.receipt_status_updated"
 msgid "Closing receipt status updated: [status]"

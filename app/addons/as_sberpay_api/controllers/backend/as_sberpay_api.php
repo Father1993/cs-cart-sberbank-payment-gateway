@@ -164,7 +164,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $sync = $processor->refreshClosingReceiptMeta(
             $order_id,
-            (string) $order_info['payment_info']['transaction_id']
+            (string) $order_info['payment_info']['transaction_id'],
+            'admin_refresh'
         );
 
         if (empty($sync['ok'])) {
