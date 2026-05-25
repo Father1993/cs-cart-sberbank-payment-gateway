@@ -317,6 +317,53 @@ class AsSberPayApi
     }
 
     /**
+     * Запрашивает OFD getReceiptStatus и сохраняет meta закрывающего чека.
+     *
+     * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, message?: string}
+     */
+    public function refreshClosingReceiptMeta(int $order_id, string $gateway_order_id)
+    {
+        if ($gateway_order_id === '') {
+            return ['ok' => false, 'message' => 'Missing gateway order id'];
+        }
+
+        $ofd_response = $this->getReceiptStatus($gateway_order_id);
+        if ($this->isError()) {
+            return ['ok' => false, 'message' => $this->getErrorText()];
+        }
+
+        $ofd_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
+        if ($ofd_receipt_status === null) {
+            return ['ok' => true, 'found' => false];
+        }
+
+        $status = $this->normalizeClosingReceiptStatus($ofd_receipt_status);
+        if ($order_id > 0) {
+            fn_as_sberpay_api_save_closing_receipt_meta($order_id, [
+                'status' => $status,
+                'gateway_order_id' => $gateway_order_id,
+                'source' => 'ofd_getReceiptStatus',
+                'ofd_receipt_status' => $ofd_receipt_status,
+                'updated_at' => TIME,
+            ]);
+        }
+
+        $this->log([
+            'order_id' => $order_id,
+            'gateway_order_id' => $gateway_order_id,
+            'ofd_receipt_status' => $ofd_receipt_status,
+            'status' => $status,
+        ], 'refreshClosingReceiptMeta');
+
+        return [
+            'ok' => true,
+            'found' => true,
+            'status' => $status,
+            'ofd_receipt_status' => $ofd_receipt_status,
+        ];
+    }
+
+    /**
      * Возврат средств (refund.do).
      *
      * @param string $gateway_order_id ID заказа в Сбере
@@ -447,27 +494,16 @@ class AsSberPayApi
             return [];
         }
 
-        $ofd_response = $this->getReceiptStatus($gateway_order_id);
-        if (!$this->isError()) {
-            $closing_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
-            if ($closing_receipt_status !== null) {
-                if ($order_id > 0) {
-                    fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
-                        'status' => $closing_receipt_status === 3 ? 'succeeded' : 'pending',
-                        'gateway_order_id' => $gateway_order_id,
-                        'source' => 'ofd_getReceiptStatus',
-                        'ofd_receipt_status' => $closing_receipt_status,
-                        'updated_at' => TIME,
-                    ]);
-                }
+        $sync = $this->refreshClosingReceiptMeta((int) $order_id, (string) $gateway_order_id);
+        if (!empty($sync['ok']) && !empty($sync['found'])
+            && in_array($sync['status'] ?? '', ['succeeded', 'pending'], true)
+        ) {
+            $this->log([
+                'order_id' => $order_id,
+                'closing_receipt_status' => $sync['ofd_receipt_status'] ?? null,
+            ], 'doReceipt: skipped closing receipt exists in OFD');
 
-                $this->log([
-                    'order_id' => $order_id,
-                    'closing_receipt_status' => $closing_receipt_status,
-                ], 'doReceipt: skipped closing receipt exists in OFD');
-
-                return [];
-            }
+            return [];
         }
 
         $snapshot = !empty($payment_meta['fiscal_snapshot']) && is_array($payment_meta['fiscal_snapshot'])
@@ -640,7 +676,7 @@ class AsSberPayApi
      * Итоговый статус закрывающего sell-чека в OFD или null, если doReceipt нужен.
      *
      * @param array $response Ответ getReceiptStatus
-     * @return int|null receiptStatus (1–3) или null
+     * @return int|null receiptStatus (1–5) или null
      */
     private function getClosingSellReceiptStatus(array $response)
     {
@@ -671,12 +707,37 @@ class AsSberPayApi
 
         foreach ($extra_receipts as $receipt) {
             $status = (int) ($receipt['receiptStatus'] ?? -1);
+            if (in_array($status, [4, 5], true)) {
+                return $status;
+            }
+        }
+
+        foreach ($extra_receipts as $receipt) {
+            $status = (int) ($receipt['receiptStatus'] ?? -1);
             if (in_array($status, [1, 2], true)) {
                 return $status;
             }
         }
 
         return null;
+    }
+
+    /**
+     * @param int $ofd_receipt_status receiptStatus из OFD (1–5)
+     */
+    private function normalizeClosingReceiptStatus($ofd_receipt_status)
+    {
+        $ofd_receipt_status = (int) $ofd_receipt_status;
+
+        if ($ofd_receipt_status === 3) {
+            return 'succeeded';
+        }
+
+        if (in_array($ofd_receipt_status, [4, 5], true)) {
+            return 'failed';
+        }
+
+        return 'pending';
     }
 
     /**

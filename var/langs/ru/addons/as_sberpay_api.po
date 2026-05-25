@@ -296,3 +296,75 @@ msgstr "С сайта можно отправить только полный в
 msgctxt "Languages::addons.as_sberpay_api.refund_bundle_rebuild_required"
 msgid "This refund bundle must be rebuilt in 1C before sending it to Sber"
 msgstr "Для этого возврата orderBundle нужно пересобрать в 1С перед отправкой в Сбер"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_title"
+msgid "Fiscal receipts"
+msgstr "Фискальные чеки"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_registered"
+msgid "Prepayment receipt: registered at checkout"
+msgstr "Чек предоплаты: зарегистрирован при оплате"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_closing_title"
+msgid "Closing receipt"
+msgstr "Закрывающий чек"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_not_sent"
+msgid "Not sent"
+msgstr "Не отправлен"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_pending"
+msgid "Pending"
+msgstr "В обработке"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_succeeded"
+msgid "Succeeded"
+msgstr "Успешно"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_failed"
+msgid "Failed"
+msgstr "Ошибка"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_1"
+msgid "OFD status: receipt is being processed"
+msgstr "OFD: чек обрабатывается"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_2"
+msgid "OFD status: receipt is being sent"
+msgstr "OFD: чек отправляется"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_3"
+msgid "OFD status: receipt registered successfully"
+msgstr "OFD: чек успешно зарегистрирован"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_4"
+msgid "OFD status: receipt processing error"
+msgstr "OFD: ошибка обработки чека"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_5"
+msgid "OFD status: receipt send attempts exhausted"
+msgstr "OFD: попытки отправки чека исчерпаны"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_refund_succeeded"
+msgid "Refund receipt: succeeded"
+msgstr "Чек возврата: выполнен"
+
+msgctxt "Languages::addons.as_sberpay_api.refresh_receipt_status"
+msgid "Refresh receipt status"
+msgstr "Обновить статус чека"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_updated"
+msgid "Closing receipt status updated: [status]"
+msgstr "Статус закрывающего чека обновлён: [status]"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_failed"
+msgid "Failed to refresh receipt status"
+msgstr "Не удалось обновить статус чека"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_closing_not_found"
+msgid "Closing receipt was not found in OFD yet"
+msgstr "Закрывающий чек в OFD пока не найден"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_fiscal_disabled"
+msgid "Fiscal receipts are disabled for this payment method"
+msgstr "Фискализация отключена для этого способа оплаты"

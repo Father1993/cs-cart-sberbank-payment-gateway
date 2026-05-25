@@ -124,5 +124,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
     }
+
+    if ($mode === 'receipt_status') {
+        $order_id = !empty($_REQUEST['order_id']) ? (int) $_REQUEST['order_id'] : 0;
+        $order_info = fn_get_order_info($order_id, false, false);
+
+        if (empty($order_info)) {
+            fn_set_notification('E', __('error'), __('object_not_found'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.manage'];
+        }
+
+        $runtime_company_id = (int) Registry::get('runtime.company_id');
+        if ($runtime_company_id && (int) ($order_info['company_id'] ?? 0) !== $runtime_company_id) {
+            fn_set_notification('E', __('error'), __('access_denied'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.manage'];
+        }
+
+        $processor_data = fn_get_processor_data($order_info['payment_id']);
+        if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+            fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_not_available'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        if (empty($order_info['payment_info']['transaction_id'])) {
+            fn_set_notification('E', __('error'), __('addons.as_sberpay_api.refund_missing_transaction'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        $processor = new AsSberPayApi($processor_data);
+        if (!$processor->usesOrderBundle()) {
+            fn_set_notification('W', __('warning'), __('addons.as_sberpay_api.receipt_fiscal_disabled'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        $sync = $processor->refreshClosingReceiptMeta(
+            $order_id,
+            (string) $order_info['payment_info']['transaction_id']
+        );
+
+        if (empty($sync['ok'])) {
+            fn_set_notification(
+                'E',
+                __('error'),
+                !empty($sync['message'])
+                    ? (string) $sync['message']
+                    : __('addons.as_sberpay_api.receipt_status_failed')
+            );
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        if (empty($sync['found'])) {
+            fn_set_notification('W', __('warning'), __('addons.as_sberpay_api.receipt_closing_not_found'));
+
+            return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+        }
+
+        $status = (string) ($sync['status'] ?? 'pending');
+        $status_label = __('addons.as_sberpay_api.receipt_status_' . $status);
+        fn_set_notification(
+            'N',
+            __('notice'),
+            __('addons.as_sberpay_api.receipt_status_updated', ['[status]' => $status_label])
+        );
+
+        return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
+    }
 }
 
