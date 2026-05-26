@@ -29,10 +29,17 @@
                     {/if}
                 </div>
             {/if}
-            {if $rv.has_refund_receipt}
+            {if $rv.has_refund && $rv.refund}
                 <div>
                     {__("addons.as_sberpay_api.receipt_refund_title")}:
-                    <span class="label label-success">{__("addons.as_sberpay_api.receipt_status_succeeded")}</span>
+                    {if $rv.refund.label_class}
+                        <span class="label {$rv.refund.label_class}">{$rv.refund.status_label}</span>
+                    {else}
+                        {$rv.refund.status_label}
+                    {/if}
+                    {if $rv.refund.updated_at_formatted}
+                        <span class="muted">({$rv.refund.updated_at_formatted})</span>
+                    {/if}
                 </div>
             {/if}
             {if $rv.closing.error_message}

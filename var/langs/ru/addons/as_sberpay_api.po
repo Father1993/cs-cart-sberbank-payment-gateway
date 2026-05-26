@@ -405,6 +405,18 @@ msgctxt "Languages::addons.as_sberpay_api.receipt_closing_not_found"
 msgid "Closing receipt was not found in OFD yet"
 msgstr "Закрывающий чек в OFD пока не найден"
 
+msgctxt "Languages::addons.as_sberpay_api.receipt_refund_not_found"
+msgid "Refund receipt was not found in OFD yet"
+msgstr "Чек возврата в OFD пока не найден"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_na"
+msgid "N/A"
+msgstr "—"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_refresh_summary"
+msgid "Updated from OFD: prepayment — [prepayment]; closing — [closing]; refund — [refund]"
+msgstr "Обновлено из OFD: предоплата — [prepayment]; закрывающий — [closing]; возврат — [refund]"
+
 msgctxt "Languages::addons.as_sberpay_api.receipt_fiscal_disabled"
 msgid "Fiscal receipts are disabled for this payment method"
 msgstr "Фискализация отключена для этого способа оплаты"

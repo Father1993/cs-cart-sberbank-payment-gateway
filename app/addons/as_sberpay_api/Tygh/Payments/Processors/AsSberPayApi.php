@@ -317,9 +317,9 @@ class AsSberPayApi
     }
 
     /**
-     * Запрашивает OFD getReceiptStatus и сохраняет meta предоплаты и закрывающего чека.
+     * Запрашивает OFD getReceiptStatus и сохраняет meta предоплаты, закрывающего и возвратного чека.
      *
-     * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, prepayment_found?: bool, prepayment_status?: string, message?: string}
+     * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, prepayment_found?: bool, prepayment_status?: string, refund_found?: bool, refund_status?: string, message?: string}
      */
     public function refreshClosingReceiptMeta(int $order_id, string $gateway_order_id, $update_source = 'ofd_poll_doreceipt')
     {
@@ -379,6 +379,27 @@ class AsSberPayApi
             $result['ofd_receipt_status'] = $ofd_receipt_status;
             $log_data['ofd_receipt_status'] = $ofd_receipt_status;
             $log_data['status'] = $status;
+        }
+
+        $refund_ofd_status = $this->getRefundReceiptStatus($ofd_response);
+        if ($refund_ofd_status !== null) {
+            $refund_status = $this->normalizeReceiptStatus($refund_ofd_status);
+            if ($order_id > 0) {
+                fn_as_sberpay_api_save_refund_receipt_meta($order_id, [
+                    'status' => $refund_status,
+                    'gateway_order_id' => $gateway_order_id,
+                    'source' => 'ofd_getReceiptStatus',
+                    'update_source' => (string) $update_source,
+                    'ofd_receipt_status' => $refund_ofd_status,
+                    'updated_at' => TIME,
+                ]);
+            }
+
+            $result['refund_found'] = true;
+            $result['refund_status'] = $refund_status;
+            $result['refund_ofd_receipt_status'] = $refund_ofd_status;
+            $log_data['refund_ofd_receipt_status'] = $refund_ofd_status;
+            $log_data['refund_status'] = $refund_status;
         }
 
         $this->log($log_data, 'refreshClosingReceiptMeta');
@@ -750,25 +771,54 @@ class AsSberPayApi
     }
 
     /**
+     * Итоговый статус чека возврата (sell_refund) в OFD или null.
+     *
+     * @param array $response Ответ getReceiptStatus
+     * @return int|null receiptStatus (1–5) или null
+     */
+    private function getRefundReceiptStatus(array $response)
+    {
+        $refund_receipts = $this->collectReceiptsByType($response, ['sell_refund']);
+
+        if (!$refund_receipts) {
+            return null;
+        }
+
+        return $this->pickReceiptStatusFromSellList($refund_receipts);
+    }
+
+    /**
      * @param array $response Ответ getReceiptStatus
      * @return array<int, array>
      */
     private function collectSellReceipts(array $response)
     {
+        return $this->collectReceiptsByType($response, ['sell']);
+    }
+
+    /**
+     * @param array        $response Ответ getReceiptStatus
+     * @param array<int, string> $types receiptType (lowercase)
+     * @return array<int, array>
+     */
+    private function collectReceiptsByType(array $response, array $types)
+    {
         $receipts = !empty($response['receipts']) && is_array($response['receipts']) ? $response['receipts'] : [];
-        $sell_receipts = [];
+        $types = array_map('strtolower', $types);
+        $matched = [];
 
         foreach ($receipts as $receipt) {
             if (!is_array($receipt)) {
                 continue;
             }
 
-            if (strtolower((string) ($receipt['receiptType'] ?? '')) === 'sell') {
-                $sell_receipts[] = $receipt;
+            $receipt_type = strtolower((string) ($receipt['receiptType'] ?? ''));
+            if (in_array($receipt_type, $types, true)) {
+                $matched[] = $receipt;
             }
         }
 
-        return $sell_receipts;
+        return $matched;
     }
 
     /**

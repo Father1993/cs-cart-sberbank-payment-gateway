@@ -282,6 +282,22 @@ function fn_as_sberpay_api_save_prepayment_receipt_meta($order_id, array $prepay
 }
 
 /**
+ * Сохраняет служебные данные фискального чека возврата (OFD sell_refund).
+ */
+function fn_as_sberpay_api_save_refund_receipt_meta($order_id, array $refund_receipt_meta)
+{
+    if (!$refund_receipt_meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'refund_receipt' => array_filter($refund_receipt_meta, static function ($value) {
+            return $value !== '' && $value !== null;
+        }),
+    ]);
+}
+
+/**
  * Сохраняет snapshot закрывающего чека полного расчёта.
  */
 function fn_as_sberpay_api_save_closing_receipt_snapshot($order_id, array $source_snapshot, array $order_bundle, $gateway_order_id)
@@ -619,7 +635,7 @@ function fn_as_sberpay_api_resolve_prepayment_status(array $meta, array $order, 
         return (string) $meta['prepayment_receipt']['status'];
     }
 
-    $gateway_paid = in_array((int) ($meta['order_status'] ?? -1), [1, 2], true);
+    $gateway_paid = in_array((int) ($meta['order_status'] ?? -1), [1, 2, 4], true);
     $order_paid = ($order['status'] ?? '') === $confirmed_status;
 
     if (!$gateway_paid && !$order_paid) {
@@ -627,6 +643,78 @@ function fn_as_sberpay_api_resolve_prepayment_status(array $meta, array $order, 
     }
 
     return 'succeeded';
+}
+
+/**
+ * Был ли по заказу возврат средств (Сбер / сайт).
+ */
+function fn_as_sberpay_api_order_had_refund(array $meta)
+{
+    if (!empty($meta['refund']) && is_array($meta['refund'])) {
+        return true;
+    }
+
+    if ((int) ($meta['order_status'] ?? -1) === 4) {
+        return true;
+    }
+
+    if (!empty($meta['refunded_amount']) && (float) $meta['refunded_amount'] > 0) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Статус фискального чека возврата для UI или null, если возврата не было.
+ */
+function fn_as_sberpay_api_resolve_refund_fiscal_status(array $meta)
+{
+    if (!empty($meta['refund_receipt']['status'])) {
+        return (string) $meta['refund_receipt']['status'];
+    }
+
+    if (!fn_as_sberpay_api_order_had_refund($meta) && empty($meta['refund_receipt'])) {
+        return null;
+    }
+
+    if (!empty($meta['refund']['status']) && $meta['refund']['status'] === 'failed') {
+        return 'failed';
+    }
+
+    if (!empty($meta['refund']['status']) && $meta['refund']['status'] === 'succeeded') {
+        return 'succeeded';
+    }
+
+    if (fn_as_sberpay_api_order_had_refund($meta)) {
+        return 'not_sent';
+    }
+
+    return null;
+}
+
+/**
+ * Label статуса чека для уведомлений админки (OFD refresh).
+ */
+function fn_as_sberpay_api_get_receipt_status_display_label($status_key)
+{
+    if ($status_key === null || $status_key === '') {
+        return (string) __('addons.as_sberpay_api.receipt_status_na');
+    }
+
+    $lang_key = 'receipt_status_' . (string) $status_key;
+    $allowed = [
+        'receipt_status_not_sent',
+        'receipt_status_pending',
+        'receipt_status_succeeded',
+        'receipt_status_failed',
+    ];
+
+    if (!in_array($lang_key, $allowed, true)) {
+        return (string) __('addons.as_sberpay_api.receipt_status_not_sent');
+    }
+
+    return (string) __('addons.as_sberpay_api.' . $lang_key);
 }
 
 /**
@@ -679,7 +767,9 @@ function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
 
     $has_fiscal_data = !empty($meta['fiscal_snapshot'])
         || !empty($meta['closing_receipt'])
-        || (!empty($meta['refund']['status']) && $meta['refund']['status'] === 'succeeded');
+        || !empty($meta['prepayment_receipt'])
+        || !empty($meta['refund_receipt'])
+        || fn_as_sberpay_api_order_had_refund($meta);
 
     if (!$has_fiscal_data) {
         return ['show' => false];
@@ -692,12 +782,19 @@ function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
     $prepayment = !empty($meta['prepayment_receipt']) && is_array($meta['prepayment_receipt'])
         ? $meta['prepayment_receipt']
         : [];
+    $refund_receipt = !empty($meta['refund_receipt']) && is_array($meta['refund_receipt'])
+        ? $meta['refund_receipt']
+        : [];
     $closing_status = (string) ($closing['status'] ?? 'not_sent');
     $prepayment_status = fn_as_sberpay_api_resolve_prepayment_status(
         $meta,
         $order,
         $processor->getConfirmedStatus()
     );
+    $refund_fiscal_status = fn_as_sberpay_api_resolve_refund_fiscal_status($meta);
+    $has_refund = $refund_fiscal_status !== null
+        || fn_as_sberpay_api_order_had_refund($meta)
+        || !empty($meta['refund_receipt']);
 
     return [
         'show' => true,
@@ -713,7 +810,13 @@ function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
             (int) ($closing['updated_at'] ?? 0),
             (string) ($closing['error_message'] ?? '')
         ),
-        'has_refund_receipt' => !empty($meta['refund']['status']) && $meta['refund']['status'] === 'succeeded',
+        'has_refund' => $has_refund,
+        'refund' => $refund_fiscal_status !== null
+            ? fn_as_sberpay_api_build_receipt_line_view(
+                $refund_fiscal_status,
+                (int) ($refund_receipt['updated_at'] ?? 0)
+            )
+            : null,
     ];
 }
 
