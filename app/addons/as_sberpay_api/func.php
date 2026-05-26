@@ -266,6 +266,22 @@ function fn_as_sberpay_api_save_closing_receipt_meta($order_id, array $closing_r
 }
 
 /**
+ * Сохраняет служебные данные чека предоплаты.
+ */
+function fn_as_sberpay_api_save_prepayment_receipt_meta($order_id, array $prepayment_receipt_meta)
+{
+    if (!$prepayment_receipt_meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_save_meta((int) $order_id, [
+        'prepayment_receipt' => array_filter($prepayment_receipt_meta, static function ($value) {
+            return $value !== '' && $value !== null;
+        }),
+    ]);
+}
+
+/**
  * Сохраняет snapshot закрывающего чека полного расчёта.
  */
 function fn_as_sberpay_api_save_closing_receipt_snapshot($order_id, array $source_snapshot, array $order_bundle, $gateway_order_id)
@@ -595,6 +611,59 @@ function fn_as_sberpay_api_get_receipt_status_label_class($status)
 }
 
 /**
+ * Статус чека предоплаты для UI: meta OFD, иначе not_sent / legacy succeeded.
+ */
+function fn_as_sberpay_api_resolve_prepayment_status(array $meta, array $order, $confirmed_status)
+{
+    if (!empty($meta['prepayment_receipt']['status'])) {
+        return (string) $meta['prepayment_receipt']['status'];
+    }
+
+    $gateway_paid = in_array((int) ($meta['order_status'] ?? -1), [1, 2], true);
+    $order_paid = ($order['status'] ?? '') === $confirmed_status;
+
+    if (!$gateway_paid && !$order_paid) {
+        return 'not_sent';
+    }
+
+    return 'succeeded';
+}
+
+/**
+ * Одна строка статуса чека для шаблона orders.details.
+ */
+function fn_as_sberpay_api_build_receipt_line_view($status, $updated_at = 0, $error_message = '')
+{
+    $status = (string) $status;
+    $status_lang_key = 'receipt_status_' . $status;
+    $allowed_status_keys = [
+        'receipt_status_not_sent',
+        'receipt_status_pending',
+        'receipt_status_succeeded',
+        'receipt_status_failed',
+    ];
+
+    if (!in_array($status_lang_key, $allowed_status_keys, true)) {
+        $status = 'not_sent';
+        $status_lang_key = 'receipt_status_not_sent';
+    }
+
+    return [
+        'status' => $status,
+        'status_label' => (string) __('addons.as_sberpay_api.' . $status_lang_key),
+        'label_class' => fn_as_sberpay_api_get_receipt_status_label_class($status),
+        'updated_at_formatted' => ($updated_at && $status !== 'not_sent')
+            ? fn_date_format(
+                (int) $updated_at,
+                \Tygh\Registry::get('settings.Appearance.date_format') . ', '
+                . \Tygh\Registry::get('settings.Appearance.time_format')
+            )
+            : '',
+        'error_message' => $status === 'failed' ? (string) $error_message : '',
+    ];
+}
+
+/**
  * Готовит блок UI статусов фискальных чеков для orders.details.
  */
 function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
@@ -620,41 +689,30 @@ function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
     $closing = !empty($meta['closing_receipt']) && is_array($meta['closing_receipt'])
         ? $meta['closing_receipt']
         : [];
+    $prepayment = !empty($meta['prepayment_receipt']) && is_array($meta['prepayment_receipt'])
+        ? $meta['prepayment_receipt']
+        : [];
     $closing_status = (string) ($closing['status'] ?? 'not_sent');
-    $status_lang_key = 'receipt_status_' . $closing_status;
-    $allowed_status_keys = [
-        'receipt_status_not_sent',
-        'receipt_status_pending',
-        'receipt_status_succeeded',
-        'receipt_status_failed',
-    ];
-    if (!in_array($status_lang_key, $allowed_status_keys, true)) {
-        $status_lang_key = 'receipt_status_not_sent';
-        $closing_status = 'not_sent';
-    }
-
-    $updated_at = (int) ($closing['updated_at'] ?? 0);
+    $prepayment_status = fn_as_sberpay_api_resolve_prepayment_status(
+        $meta,
+        $order,
+        $processor->getConfirmedStatus()
+    );
 
     return [
         'show' => true,
         'can_refresh' => $processor->usesOrderBundle(),
         'refresh_href' => 'as_sberpay_api.receipt_status?order_id=' . (int) $order['order_id'],
         'has_prepayment' => !empty($meta['fiscal_snapshot']),
-        'closing' => [
-            'status' => $closing_status,
-            'status_label' => (string) __('addons.as_sberpay_api.' . $status_lang_key),
-            'label_class' => fn_as_sberpay_api_get_receipt_status_label_class($closing_status),
-            'updated_at_formatted' => ($updated_at && $closing_status !== 'not_sent')
-                ? fn_date_format(
-                    $updated_at,
-                    \Tygh\Registry::get('settings.Appearance.date_format') . ', '
-                    . \Tygh\Registry::get('settings.Appearance.time_format')
-                )
-                : '',
-            'error_message' => $closing_status === 'failed'
-                ? (string) ($closing['error_message'] ?? '')
-                : '',
-        ],
+        'prepayment' => fn_as_sberpay_api_build_receipt_line_view(
+            $prepayment_status,
+            (int) ($prepayment['updated_at'] ?? 0)
+        ),
+        'closing' => fn_as_sberpay_api_build_receipt_line_view(
+            $closing_status,
+            (int) ($closing['updated_at'] ?? 0),
+            (string) ($closing['error_message'] ?? '')
+        ),
         'has_refund_receipt' => !empty($meta['refund']['status']) && $meta['refund']['status'] === 'succeeded',
     ];
 }

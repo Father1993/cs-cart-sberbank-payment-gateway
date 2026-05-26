@@ -317,9 +317,9 @@ class AsSberPayApi
     }
 
     /**
-     * Запрашивает OFD getReceiptStatus и сохраняет meta закрывающего чека.
+     * Запрашивает OFD getReceiptStatus и сохраняет meta предоплаты и закрывающего чека.
      *
-     * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, message?: string}
+     * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, prepayment_found?: bool, prepayment_status?: string, message?: string}
      */
     public function refreshClosingReceiptMeta(int $order_id, string $gateway_order_id, $update_source = 'ofd_poll_doreceipt')
     {
@@ -332,37 +332,76 @@ class AsSberPayApi
             return ['ok' => false, 'message' => $this->getErrorText()];
         }
 
-        $ofd_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
-        if ($ofd_receipt_status === null) {
-            return ['ok' => true, 'found' => false];
-        }
-
-        $status = $this->normalizeClosingReceiptStatus($ofd_receipt_status);
-        if ($order_id > 0) {
-            fn_as_sberpay_api_save_closing_receipt_meta($order_id, [
-                'status' => $status,
-                'gateway_order_id' => $gateway_order_id,
-                'source' => 'ofd_getReceiptStatus',
-                'update_source' => (string) $update_source,
-                'ofd_receipt_status' => $ofd_receipt_status,
-                'updated_at' => TIME,
-            ]);
-        }
-
-        $this->log([
+        $result = ['ok' => true, 'found' => false];
+        $log_data = [
             'order_id' => $order_id,
             'gateway_order_id' => $gateway_order_id,
-            'ofd_receipt_status' => $ofd_receipt_status,
-            'status' => $status,
             'update_source' => $update_source,
-        ], 'refreshClosingReceiptMeta');
-
-        return [
-            'ok' => true,
-            'found' => true,
-            'status' => $status,
-            'ofd_receipt_status' => $ofd_receipt_status,
         ];
+
+        $prepayment_ofd_status = $this->getPrepaymentSellReceiptStatus($ofd_response);
+        if ($prepayment_ofd_status !== null) {
+            $prepayment_status = $this->normalizeReceiptStatus($prepayment_ofd_status);
+            if ($order_id > 0) {
+                fn_as_sberpay_api_save_prepayment_receipt_meta($order_id, [
+                    'status' => $prepayment_status,
+                    'gateway_order_id' => $gateway_order_id,
+                    'source' => 'ofd_getReceiptStatus',
+                    'update_source' => (string) $update_source,
+                    'ofd_receipt_status' => $prepayment_ofd_status,
+                    'updated_at' => TIME,
+                ]);
+            }
+
+            $result['prepayment_found'] = true;
+            $result['prepayment_status'] = $prepayment_status;
+            $result['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
+            $log_data['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
+            $log_data['prepayment_status'] = $prepayment_status;
+        }
+
+        $ofd_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
+        if ($ofd_receipt_status !== null) {
+            $status = $this->normalizeReceiptStatus($ofd_receipt_status);
+            if ($order_id > 0) {
+                fn_as_sberpay_api_save_closing_receipt_meta($order_id, [
+                    'status' => $status,
+                    'gateway_order_id' => $gateway_order_id,
+                    'source' => 'ofd_getReceiptStatus',
+                    'update_source' => (string) $update_source,
+                    'ofd_receipt_status' => $ofd_receipt_status,
+                    'updated_at' => TIME,
+                ]);
+            }
+
+            $result['found'] = true;
+            $result['status'] = $status;
+            $result['ofd_receipt_status'] = $ofd_receipt_status;
+            $log_data['ofd_receipt_status'] = $ofd_receipt_status;
+            $log_data['status'] = $status;
+        }
+
+        $this->log($log_data, 'refreshClosingReceiptMeta');
+
+        return $result;
+    }
+
+    /**
+     * @param int $ofd_receipt_status receiptStatus из OFD (1–5)
+     */
+    public function normalizeReceiptStatus($ofd_receipt_status)
+    {
+        $ofd_receipt_status = (int) $ofd_receipt_status;
+
+        if ($ofd_receipt_status === 3) {
+            return 'succeeded';
+        }
+
+        if (in_array($ofd_receipt_status, [4, 5], true)) {
+            return 'failed';
+        }
+
+        return 'pending';
     }
 
     /**
@@ -677,12 +716,44 @@ class AsSberPayApi
     // =========================================================================
 
     /**
+     * Итоговый статус первого sell-чека (предоплата) в OFD или null.
+     *
+     * @param array $response Ответ getReceiptStatus
+     * @return int|null receiptStatus (1–5) или null
+     */
+    private function getPrepaymentSellReceiptStatus(array $response)
+    {
+        $sell_receipts = $this->collectSellReceipts($response);
+
+        if (!$sell_receipts) {
+            return null;
+        }
+
+        return $this->pickReceiptStatusFromSellList([$sell_receipts[0]]);
+    }
+
+    /**
      * Итоговый статус закрывающего sell-чека в OFD или null, если doReceipt нужен.
      *
      * @param array $response Ответ getReceiptStatus
      * @return int|null receiptStatus (1–5) или null
      */
     private function getClosingSellReceiptStatus(array $response)
+    {
+        $sell_receipts = $this->collectSellReceipts($response);
+
+        if (count($sell_receipts) < 2) {
+            return null;
+        }
+
+        return $this->pickReceiptStatusFromSellList(array_slice($sell_receipts, 1));
+    }
+
+    /**
+     * @param array $response Ответ getReceiptStatus
+     * @return array<int, array>
+     */
+    private function collectSellReceipts(array $response)
     {
         $receipts = !empty($response['receipts']) && is_array($response['receipts']) ? $response['receipts'] : [];
         $sell_receipts = [];
@@ -697,26 +768,29 @@ class AsSberPayApi
             }
         }
 
-        if (count($sell_receipts) < 2) {
-            return null;
-        }
+        return $sell_receipts;
+    }
 
-        $extra_receipts = array_slice($sell_receipts, 1);
-
-        foreach ($extra_receipts as $receipt) {
+    /**
+     * @param array<int, array> $sell_receipts
+     * @return int|null
+     */
+    private function pickReceiptStatusFromSellList(array $sell_receipts)
+    {
+        foreach ($sell_receipts as $receipt) {
             if ((int) ($receipt['receiptStatus'] ?? -1) === 3) {
                 return 3;
             }
         }
 
-        foreach ($extra_receipts as $receipt) {
+        foreach ($sell_receipts as $receipt) {
             $status = (int) ($receipt['receiptStatus'] ?? -1);
             if (in_array($status, [4, 5], true)) {
                 return $status;
             }
         }
 
-        foreach ($extra_receipts as $receipt) {
+        foreach ($sell_receipts as $receipt) {
             $status = (int) ($receipt['receiptStatus'] ?? -1);
             if (in_array($status, [1, 2], true)) {
                 return $status;
@@ -724,24 +798,6 @@ class AsSberPayApi
         }
 
         return null;
-    }
-
-    /**
-     * @param int $ofd_receipt_status receiptStatus из OFD (1–5)
-     */
-    private function normalizeClosingReceiptStatus($ofd_receipt_status)
-    {
-        $ofd_receipt_status = (int) $ofd_receipt_status;
-
-        if ($ofd_receipt_status === 3) {
-            return 'succeeded';
-        }
-
-        if (in_array($ofd_receipt_status, [4, 5], true)) {
-            return 'failed';
-        }
-
-        return 'pending';
     }
 
     /**

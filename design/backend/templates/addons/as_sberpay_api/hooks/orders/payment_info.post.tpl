@@ -6,7 +6,14 @@
             {if $rv.has_prepayment}
                 <div>
                     {__("addons.as_sberpay_api.receipt_prepayment_title")}:
-                    <span class="label label-success">{__("addons.as_sberpay_api.receipt_status_succeeded")}</span>
+                    {if $rv.prepayment.label_class}
+                        <span class="label {$rv.prepayment.label_class}">{$rv.prepayment.status_label}</span>
+                    {else}
+                        {$rv.prepayment.status_label}
+                    {/if}
+                    {if $rv.prepayment.updated_at_formatted}
+                        <span class="muted">({$rv.prepayment.updated_at_formatted})</span>
+                    {/if}
                 </div>
             {/if}
             {if $rv.closing}
