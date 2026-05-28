@@ -8,6 +8,7 @@ $schema['top']['addons']['items']['as_sberpay_api'] = [
     'title' => 'SberPay API',
     'href' => 'addons.update&addon=as_sberpay_api',
     'position' => 100,
+    'strict' => true,
     'subitems' => [
         'settings' => [
             'title' => 'Настройки',
