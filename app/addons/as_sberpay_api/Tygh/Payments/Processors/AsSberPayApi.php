@@ -206,7 +206,6 @@ class AsSberPayApi
         $amount = $this->formatAmount($order_info['total']);
         $bundle = null;
 
-        // При фискализации (orderBundle) — минимальный набор полей как в эталоне документации.
         if ($this->send_order) {
             $bundle = $this->buildOrderBundle($order_info);
             if (!$bundle) {
@@ -214,37 +213,33 @@ class AsSberPayApi
             }
         }
 
+        if ($protocol === 'current') {
+            $protocol = 'https';
+        }
+
+        $args = [
+            'userName' => $this->login,
+            'password' => $this->password,
+            'orderNumber' => $order_number,
+            'amount' => $amount,
+            'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
+            'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
+            'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
+        ];
+
+        if (!empty($order_info['phone'])) {
+            $args['phone'] = $this->cleanPhone($order_info['phone']);
+        }
+        if (!empty($order_info['email'])) {
+            $args['email'] = $order_info['email'];
+        }
+        if (!empty($order_info['user_id'])) {
+            $email = !empty($order_info['email']) ? $order_info['email'] : '';
+            $site = parse_url(fn_url(''), PHP_URL_HOST);
+            $args['clientId'] = md5($order_info['user_id'] . $email . $site);
+        }
         if ($this->send_order && !empty($bundle)) {
-            $args = [
-                'userName' => $this->login,
-                'password' => $this->password,
-                'orderNumber' => $order_number,
-                'amount' => $amount,
-                'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
-                'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-                'orderBundle' => $bundle,
-            ];
-        } else {
-            $args = [
-                'userName' => $this->login,
-                'password' => $this->password,
-                'orderNumber' => $order_number,
-                'amount' => $amount,
-                'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
-                'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
-                'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
-            ];
-            if (!empty($order_info['phone'])) {
-                $args['phone'] = $this->cleanPhone($order_info['phone']);
-            }
-            if (!empty($order_info['email'])) {
-                $args['email'] = $order_info['email'];
-            }
-            if (!empty($order_info['user_id'])) {
-                $email = !empty($order_info['email']) ? $order_info['email'] : '';
-                $site = parse_url(fn_url(''), PHP_URL_HOST);
-                $args['clientId'] = md5($order_info['user_id'] . $email . $site);
-            }
+            $args['orderBundle'] = $bundle;
         }
 
         $this->last_register_context = [
