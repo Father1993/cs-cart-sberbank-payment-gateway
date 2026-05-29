@@ -18,8 +18,8 @@ msgid "Login"
 msgstr "Login"
 
 msgctxt "Languages::addons.as_sberpay_api.login_hint"
-msgid "API login with -api suffix (e.g. P1234567890-api)"
-msgstr "API login with -api suffix (e.g. P1234567890-api)"
+msgid "API login with (e.g. P1234567890)"
+msgstr "API login with (e.g. P1234567890)"
 
 msgctxt "Languages::addons.as_sberpay_api.password"
 msgid "Password"
@@ -420,3 +420,71 @@ msgstr "Updated from OFD: prepayment — [prepayment]; closing — [closing]; re
 msgctxt "Languages::addons.as_sberpay_api.receipt_fiscal_disabled"
 msgid "Fiscal receipts are disabled for this payment method"
 msgstr "Fiscal receipts are disabled for this payment method"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode"
+msgid "Checkout mode"
+msgstr "Checkout mode"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hosted"
+msgid "Sber payment page (card redirect)"
+msgstr "Sber payment page (card redirect)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_sberpay_sdk"
+msgid "SberPay Web SDK (on-site widget)"
+msgstr "SberPay Web SDK (on-site widget)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hint"
+msgid "Use hosted for the existing card flow. Create a second payment method with SberPay SDK to offer both options on checkout."
+msgstr "Use hosted for the existing card flow. Create a second payment method with SberPay SDK to offer both options on checkout."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_title"
+msgid "SberPay payment"
+msgstr "SberPay payment"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_subtitle"
+msgid "Secure on-site payment"
+msgstr "Secure on-site payment"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_order"
+msgid "Order"
+msgstr "Order"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_amount"
+msgid "Amount due"
+msgstr "Amount due"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_loading"
+msgid "Opening SberPay..."
+msgstr "Opening SberPay..."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_onsite"
+msgid "Pay without leaving the store"
+msgstr "Pay without leaving the store"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_secure"
+msgid "Protected by Sber payment service"
+msgstr "Protected by Sber payment service"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry"
+msgid "Pay again"
+msgstr "Pay again"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_cancel"
+msgid "Cancel payment"
+msgstr "Cancel payment"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_back"
+msgid "Return to order"
+msgstr "Return to order"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_note"
+msgid "If the payment window did not open, click Pay again or check your browser settings."
+msgstr "If the payment window did not open, click Pay again or check your browser settings."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_return_cancel"
+msgid "Payment was cancelled. You can pay for the order again on the order details page."
+msgstr "Payment was cancelled. You can pay for the order again on the order details page."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_return_failed"
+msgid "Payment was not completed. You can try again on the order details page."
+msgstr "Payment was not completed. You can try again on the order details page."

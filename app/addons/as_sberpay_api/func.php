@@ -146,6 +146,126 @@ function fn_as_sberpay_api_save_payment_meta($order_id, array $response, $gatewa
 }
 
 /**
+ * Банковский orderId из query return (hosted: orderId/mdOrder, SDK Web: bankInvoiceId).
+ */
+function fn_as_sberpay_api_get_request_gateway_id(array $request)
+{
+    foreach (['orderId', 'mdOrder', 'bankInvoiceId'] as $key) {
+        if (!empty($request[$key])) {
+            return (string) $request[$key];
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Текст ошибки для пользователя по state из SberPay Web SDK backUrl.
+ */
+function fn_as_sberpay_api_get_sdk_return_reason(array $request)
+{
+    $state = !empty($request['state']) ? strtolower((string) $request['state']) : '';
+
+    if ($state === 'cancel') {
+        return __('addons.as_sberpay_api.sdk_return_cancel');
+    }
+
+    if ($state === 'return') {
+        return __('addons.as_sberpay_api.sdk_return_failed');
+    }
+
+    return '';
+}
+
+/**
+ * Контекст SDK-landing для заказа или пустой массив.
+ *
+ * @return array{order_info: array, processor_data: array, processor: \Tygh\Payments\Processors\AsSberPayApi, gateway_id: string}
+ */
+function fn_as_sberpay_api_resolve_sdk_pay_order($order_id)
+{
+    $order_id = (int) $order_id;
+    if (!$order_id) {
+        return [];
+    }
+
+    $order_info = fn_get_order_info($order_id);
+    if (!$order_info) {
+        return [];
+    }
+
+    $processor_data = fn_get_processor_data($order_info['payment_id']);
+    if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+        return [];
+    }
+
+    $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
+    if (!$processor->isSberPaySdk()) {
+        return [];
+    }
+
+    $gateway_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
+    if ($gateway_id === '') {
+        return [];
+    }
+
+    return [
+        'order_info' => $order_info,
+        'processor_data' => $processor_data,
+        'processor' => $processor,
+        'gateway_id' => $gateway_id,
+    ];
+}
+
+/**
+ * Редирект после неуспешной оплаты: заказ уже создан, корзина пуста — ведём на детали заказа.
+ */
+function fn_as_sberpay_api_route_after_payment($order_id, array $pp_response, $processor)
+{
+    $order_id = (int) $order_id;
+    $confirmed_status = $processor->getConfirmedStatus();
+
+    if (($pp_response['order_status'] ?? '') === $confirmed_status) {
+        fn_order_placement_routines('route', $order_id, [], false);
+        exit;
+    }
+
+    $reason = !empty($pp_response['reason_text'])
+        ? (string) $pp_response['reason_text']
+        : __('addons.as_sberpay_api.sdk_return_failed');
+
+    fn_set_notification('W', __('important'), $reason);
+    fn_redirect('orders.details?order_id=' . $order_id);
+    exit;
+}
+
+/**
+ * Отмена SDK-оплаты с переходом на страницу заказа.
+ */
+function fn_as_sberpay_api_cancel_sdk_payment($order_id)
+{
+    $ctx = fn_as_sberpay_api_resolve_sdk_pay_order($order_id);
+    if (!$ctx) {
+        return false;
+    }
+
+    if (($ctx['order_info']['status'] ?? '') === $ctx['processor']->getConfirmedStatus()) {
+        return 'paid';
+    }
+
+    fn_finish_payment($order_id, [
+        'order_status' => 'F',
+        'reason_text' => __('addons.as_sberpay_api.sdk_return_cancel'),
+    ]);
+    fn_as_sberpay_api_route_after_payment($order_id, [
+        'order_status' => 'F',
+        'reason_text' => __('addons.as_sberpay_api.sdk_return_cancel'),
+    ], $ctx['processor']);
+
+    return true;
+}
+
+/**
  * Формирует pp_response на основе ответа getOrderStatusExtended.
  */
 function fn_as_sberpay_api_build_response($response, $processor)

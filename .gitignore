@@ -1,1 +1,3 @@
 CommitPilot
+*.tgz
+app/addons/as_sberpay_api/dist/

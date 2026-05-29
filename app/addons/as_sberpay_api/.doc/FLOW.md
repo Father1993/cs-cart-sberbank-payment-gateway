@@ -211,6 +211,45 @@ AsSberPayApi::doReceipt($order_info)
 
 ---
 
+## 8. SberPay Web SDK (второй способ оплаты)
+
+```
+Checkout: выбран способ с checkout_mode = sberpay_sdk
+         │
+         ▼
+register.do + jsonParams.sberpay.backurl + sberbankOnlineAttributes
+         │
+         ▼
+Сохранение transaction_id, fiscal_snapshot, clear cart
+         │
+         ▼
+Redirect → as_sberpay_api.pay?order_id=N
+         │
+         ▼
+Landing pay.tpl + UMD widget (sberpay-widget.umd.cjs)
+         │
+         ▼
+widget.open({ bankInvoiceId, backUrl })
+         │
+         ▼
+Оплата на сайте (desktop: drawer, mobile: tab)
+         │
+         ▼
+Redirect backUrl?state=success&bankInvoiceId=...
+         │
+         ▼
+RETURN handler (тот же action=return) + getOrderStatusExtended
+         │
+         ▼
+fn_finish_payment → страница результата
+
+Параллельно: callback dynamicCallbackUrl (без изменений)
+```
+
+**Два способа на checkout:** hosted (редирект formUrl) и sberpay_sdk (виджет) — отдельные записи в «Способы оплаты», один процессор.
+
+---
+
 ## Важные нюансы
 
 ### orderNumber

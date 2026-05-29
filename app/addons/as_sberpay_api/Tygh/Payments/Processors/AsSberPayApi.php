@@ -132,6 +132,11 @@ class AsSberPayApi
     private $two_staging;
 
     /**
+     * @var string Режим checkout: hosted | sberpay_sdk
+     */
+    private $checkout_mode;
+
+    /**
      * @var array Данные компании для чека (company)
      */
     private $company = [];
@@ -179,6 +184,9 @@ class AsSberPayApi
 
         $this->confirmed_status = !empty($p['confirmed_order_status']) ? $p['confirmed_order_status'] : 'P';
         $this->two_staging = !empty($p['two_staging']) && $p['two_staging'] == '1';
+        $this->checkout_mode = !empty($p['checkout_mode']) && $p['checkout_mode'] === 'sberpay_sdk'
+            ? 'sberpay_sdk'
+            : 'hosted';
 
         $this->company = [
             'email' => isset($p['company_email']) ? (string) $p['company_email'] : '',
@@ -240,6 +248,13 @@ class AsSberPayApi
         }
         if ($this->send_order && !empty($bundle)) {
             $args['orderBundle'] = $bundle;
+        }
+
+        if ($this->isSberPaySdk()) {
+            $args['jsonParams'] = [
+                'sberpay.backurl' => $this->getSdkBackUrl((int) $order_id, $protocol),
+                'sberbankOnlineAttributes' => json_encode(['language' => 'ru']),
+            ];
         }
 
         $this->last_register_context = [
@@ -693,6 +708,57 @@ class AsSberPayApi
     public function isLogging()
     {
         return $this->logging;
+    }
+
+    public function isSberPaySdk()
+    {
+        return $this->checkout_mode === 'sberpay_sdk';
+    }
+
+    /**
+     * @param int    $order_id
+     * @param string $protocol
+     */
+    public function getSdkBackUrl($order_id, $protocol = 'https')
+    {
+        if ($protocol === 'current') {
+            $protocol = 'https';
+        }
+
+        return fn_url(
+            'payment_notification.return?payment=as_sberpay_api&action=return&ordernumber=' . (int) $order_id,
+            AREA,
+            $protocol
+        );
+    }
+
+    public function getWidgetEnvironment()
+    {
+        return $this->test_mode ? 'IFT' : 'PRODUCTION';
+    }
+
+    /**
+     * @param string|null $phone
+     * @return string|null
+     */
+    public function formatSdkPhone($phone)
+    {
+        if ($phone === null || $phone === '') {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if (strlen($digits) === 11 && $digits[0] === '8') {
+            $digits = '7' . substr($digits, 1);
+        }
+        if (strlen($digits) === 10) {
+            $digits = '7' . $digits;
+        }
+        if (strlen($digits) !== 11 || $digits[0] !== '7') {
+            return null;
+        }
+
+        return '+7' . substr($digits, 1);
     }
 
     public function usesOrderBundle()

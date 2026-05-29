@@ -85,7 +85,7 @@ if (defined('PAYMENT_NOTIFICATION')) {
         $pp_response = fn_as_sberpay_api_build_response($response, $processor);
 
         fn_finish_payment($order_id, $pp_response);
-        fn_order_placement_routines('save', $order_id, false);
+        fn_order_placement_routines('save', $order_id, [], false);
         exit;
     }
 
@@ -113,13 +113,21 @@ if (defined('PAYMENT_NOTIFICATION')) {
 
         $pp_response = ['order_status' => 'F'];
 
-        $gateway_id = $order_info['payment_info']['transaction_id'] ?? '';
-        $request_order_id = $_REQUEST['orderId'] ?? $_REQUEST['mdOrder'] ?? '';
+        $gateway_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
+        $request_order_id = fn_as_sberpay_api_get_request_gateway_id($_REQUEST);
+        $sdk_return_reason = fn_as_sberpay_api_get_sdk_return_reason($_REQUEST);
+        $sdk_state = !empty($_REQUEST['state']) ? strtolower((string) $_REQUEST['state']) : '';
+
+        if ($gateway_id === '' && $request_order_id !== '') {
+            $gateway_id = $request_order_id;
+        }
 
         if (!empty($request_order_id) && $request_order_id !== $gateway_id) {
             $pp_response['reason_text'] = 'Неверный идентификатор транзакции';
-        } elseif (empty($gateway_id)) {
-            $pp_response['reason_text'] = 'Не найден идентификатор транзакции';
+        } elseif ($gateway_id === '') {
+            $pp_response['reason_text'] = $sdk_return_reason !== ''
+                ? $sdk_return_reason
+                : 'Не найден идентификатор транзакции';
         } else {
             $response = $processor->getOrderStatusExtended($gateway_id);
 
@@ -137,9 +145,16 @@ if (defined('PAYMENT_NOTIFICATION')) {
             $pp_response = fn_as_sberpay_api_build_response($response, $processor);
         }
 
+        if (($pp_response['order_status'] ?? '') === 'F' && $sdk_return_reason !== '') {
+            if ($sdk_state === 'cancel') {
+                $pp_response['reason_text'] = $sdk_return_reason;
+            } elseif ($sdk_state === 'return' && empty($pp_response['reason_text'])) {
+                $pp_response['reason_text'] = $sdk_return_reason;
+            }
+        }
+
         fn_finish_payment($order_id, $pp_response);
-        fn_order_placement_routines('route', $order_id, false);
-        exit;
+        fn_as_sberpay_api_route_after_payment($order_id, $pp_response, $processor);
     }
 
     exit;
@@ -153,7 +168,6 @@ if (defined('PAYMENT_NOTIFICATION')) {
     $response = $processor->register($order_info);
 
     if (!$processor->isError() && !empty($response['orderId']) && !empty($response['formUrl'])) {
-        // Сохраняем gateway order ID
         fn_update_order_payment_info($order_id, [
             'transaction_id' => $response['orderId'],
         ]);
@@ -166,6 +180,12 @@ if (defined('PAYMENT_NOTIFICATION')) {
         );
 
         fn_clear_cart(\Tygh::$app['session']['cart']);
+
+        if ($processor->isSberPaySdk()) {
+            fn_redirect(fn_url('as_sberpay_api.pay?order_id=' . (int) $order_id, AREA, 'current'));
+            exit;
+        }
+
         fn_create_payment_form($response['formUrl'], [], '', true, 'GET');
     } else {
         if ($processor->isLogging()) {
@@ -175,10 +195,11 @@ if (defined('PAYMENT_NOTIFICATION')) {
             ], 'Register failed');
         }
 
-        fn_finish_payment($order_id, [
+        $pp_response = [
             'order_status' => 'F',
             'reason_text'  => $processor->getErrorText(),
-        ]);
-        fn_order_placement_routines('route', $order_id, false);
+        ];
+        fn_finish_payment($order_id, $pp_response);
+        fn_as_sberpay_api_route_after_payment($order_id, $pp_response, $processor);
     }
 }

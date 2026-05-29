@@ -18,8 +18,8 @@ msgid "Login"
 msgstr "Логин"
 
 msgctxt "Languages::addons.as_sberpay_api.login_hint"
-msgid "API login with -api suffix (e.g. P1234567890-api)"
-msgstr "Логин API с суффиксом -api (например P1234567890-api)"
+msgid "API login with (e.g. P1234567890)"
+msgstr "Логин API (например P1234567890)"
 
 msgctxt "Languages::addons.as_sberpay_api.password"
 msgid "Password"
@@ -420,3 +420,71 @@ msgstr "Обновлено из OFD: предоплата — [prepayment]; за
 msgctxt "Languages::addons.as_sberpay_api.receipt_fiscal_disabled"
 msgid "Fiscal receipts are disabled for this payment method"
 msgstr "Фискализация отключена для этого способа оплаты"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode"
+msgid "Checkout mode"
+msgstr "Режим checkout"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hosted"
+msgid "Sber payment page (card redirect)"
+msgstr "Платёжная страница Сбера (карта)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_sberpay_sdk"
+msgid "SberPay Web SDK (on-site widget)"
+msgstr "SberPay Web SDK (виджет на сайте)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hint"
+msgid "Use hosted for the existing card flow. Create a second payment method with SberPay SDK to offer both options on checkout."
+msgstr "Hosted — текущий редирект на страницу Сбера. Для второго способа на checkout создайте отдельный способ оплаты с режимом SberPay SDK."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_title"
+msgid "SberPay payment"
+msgstr "Оплата SberPay"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_subtitle"
+msgid "Secure on-site payment"
+msgstr "Безопасная оплата на сайте"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_order"
+msgid "Order"
+msgstr "Заказ"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_amount"
+msgid "Amount due"
+msgstr "К оплате"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_loading"
+msgid "Opening SberPay..."
+msgstr "Открываем форму оплаты SberPay..."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_onsite"
+msgid "Pay without leaving the store"
+msgstr "Оплата без перехода на сторонние сайты"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_secure"
+msgid "Protected by Sber payment service"
+msgstr "Защищённый платёжный сервис Сбера"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry"
+msgid "Pay again"
+msgstr "Оплатить"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_cancel"
+msgid "Cancel payment"
+msgstr "Отменить оплату"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_back"
+msgid "Return to order"
+msgstr "Вернуться к заказу"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_note"
+msgid "If the payment window did not open, click Pay again or check your browser settings."
+msgstr "Если окно оплаты не открылось, нажмите «Оплатить» ещё раз или проверьте настройки браузера."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_return_cancel"
+msgid "Payment was cancelled. You can pay for the order again on the order details page."
+msgstr "Оплата отменена. Вы можете оплатить заказ повторно на странице деталей заказа."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_return_failed"
+msgid "Payment was not completed. You can try again on the order details page."
+msgstr "Оплата не завершена. Попробуйте оплатить заказ снова на странице деталей заказа."

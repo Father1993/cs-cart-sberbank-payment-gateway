@@ -1,4 +1,16 @@
 <div class="control-group">
+    <label class="control-label" for="as_sberpay_checkout_mode">{__("addons.as_sberpay_api.checkout_mode")}:</label>
+    <div class="controls">
+        {assign var="cur_checkout_mode" value=$processor_params.checkout_mode|default:"hosted"}
+        <select name="payment_data[processor_params][checkout_mode]" id="as_sberpay_checkout_mode">
+            <option value="hosted" {if $cur_checkout_mode == "hosted"}selected="selected"{/if}>{__("addons.as_sberpay_api.checkout_mode_hosted")}</option>
+            <option value="sberpay_sdk" {if $cur_checkout_mode == "sberpay_sdk"}selected="selected"{/if}>{__("addons.as_sberpay_api.checkout_mode_sberpay_sdk")}</option>
+        </select>
+        <p class="muted description">{__("addons.as_sberpay_api.checkout_mode_hint")}</p>
+    </div>
+</div>
+
+<div class="control-group">
     <label class="control-label" for="as_sberpay_login">{__("addons.as_sberpay_api.login")}:</label>
     <div class="controls">
         <input type="text" name="payment_data[processor_params][login]" id="as_sberpay_login"
