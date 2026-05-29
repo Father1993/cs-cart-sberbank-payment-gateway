@@ -1,0 +1,532 @@
+openapi: 3.0.1
+info:
+  title: API Виджета СБП
+  description: |
+    API получения списков:
+    – Участников СБП (Банков Плательщика)
+    – Участников платформы Цифровой рубль для формирования виджета на стороне Банка или Агента ТСП.
+
+    Сокращения:
+    СБП – Система Быстрых Платежей
+    ЦР – Цифровой Рубль Банка России
+  version: "2.0"
+servers:
+  - url: https://widget.cbrpay.ru
+paths:
+  /v1/members:
+    get:
+      tags:
+        - Участники СБП
+      summary: Список Участников СБП по Payload (v1)
+      description: Метод для получения полного списка Участников СБП (Банков Плательщика) по операциям C2B, C2G, B2B или С2С, и формирования Виджета СБП на стороне Участника СБП – Банка Получателя или Агента ТСП, или ТСП.
+      operationId: membersListWithPayloadV1
+      parameters:
+        - name: X-CLIENT
+          in: header
+          description: Наименование инициатора запроса. Поле должно содержать «brandname»
+          required: true
+          schema:
+            type: string
+            minimum: 2
+            maximum: 64
+        - name: X-PLATFORM
+          in: header
+          description: |
+            Платформа, на которой будет отображаться виджет.
+
+            ios – iOS устройство;
+            android – Android устройство;
+            desktop – персональный компьютер
+          required: true
+          schema:
+            $ref: "#/components/schemas/PlatformEnum"
+        - name: X-PAYLOAD
+          in: header
+          description: Payload платежной ссылки СБП
+          required: true
+          schema:
+            type: string
+          example: https://qr.nspk.ru/AS1000670LSS7DN18SJQDNP4B05KLJL2?type=01&bank=100000000001&sum=10000&cur=RUB&crc=C08B
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SbpMemberListResponseV1"
+              example:
+                version: "1.0"
+                platform: "desktop"
+                type: "qr"
+                members:
+                  - name: "Банк"
+                    logo: "https://qr.nspk.ru/proxyapp/logo/bank000000000001.png"
+                    url: "bank000000000001://qr.nspk.ru/AS100001ORTF4GAF80KPJ53K186D9A3G?type=01&bank=100000000001&sum=20000&cur=RUB&crc=5798"
+        400:
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Не передан заголовок X-CLIENT"
+        404:
+          description: Данные не найдены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Неправильная платформа, тип платежа или QR код"
+
+  /v2/sbp/members:
+    get:
+      tags:
+        - Участники СБП
+      summary: Список Участников СБП по Payload (v2)
+      description: Метод для получения полного списка Участников СБП (Банков Плательщика) по операциям C2B, C2G, B2B или С2С, и формирования Виджета СБП на стороне Участника СБП – Банка Получателя или Агента ТСП, или ТСП.
+      operationId: membersListWithPayloadV2
+      parameters:
+        - $ref: "#/components/parameters/XClientId"
+        - $ref: "#/components/parameters/XPlatform"
+        - $ref: "#/components/parameters/XPayload"
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SbpMemberListResponseV2"
+              example:
+                version: "2.0"
+                platform: "desktop"
+                type: "qr"
+                members:
+                  - id: "100000000001"
+                    name: "Банк"
+                    logo: "https://qr.nspk.ru/proxyapp/logo/bank000000000001.png"
+                    url: "bank000000000001://qr.nspk.ru/AS100001ORTF4GAF80KPJ53K186D9A3G?type=01&bank=100000000001&sum=20000&cur=RUB&crc=5798"
+        400:
+          $ref: "#/components/responses/XClientIdError400"
+        404:
+          $ref: "#/components/responses/XPayloadParamsError404"
+
+  /v1/members/{type}:
+    get:
+      tags:
+        - Участники СБП
+      summary: Список Участников СБП для кэширования (v1)
+      description: |
+        Метод для получения списка Участников СБП – Банков Плательщика для кэширования на срок не более чем 24 часа.
+
+        Метод возвращает шаблоны прямой или доменной ссылки для перехода в приложение Банка Плательщика.
+
+        Шаблоны передаются для каждого Банка Плательщика в параметре URL. Пример: «bank100000000000://qr.nspk.ru/{QRC_ID}{QUERY_STRING}».
+
+        При формировании Прямой или Доменной ссылки необходимо самостоятельно подставлять в шаблон URL данные из Функциональной ссылки СБП вместо {QRC_ID} и {QUERY_STRING}. Если ссылка не содержит параметров запроса вместо {QUERY_STRING} подставляется пустая строка.
+      operationId: membersListV1
+      parameters:
+        - name: X-CLIENT
+          in: header
+          description: Наименование инициатора запроса. Поле должно содержать «brandname»
+          required: true
+          schema:
+            type: string
+            minimum: 2
+            maximum: 64
+        - name: X-PLATFORM
+          in: header
+          description: |
+            Платформа, на которой будет отображаться виджет.
+
+            ios – iOS устройство;
+            android – Android устройство;
+            desktop – персональный компьютер
+          required: true
+          schema:
+            $ref: "#/components/schemas/PlatformEnum"
+        - name: type
+          in: path
+          description: Тип операции
+          required: true
+          schema:
+            $ref: "#/components/schemas/TypeEnum"
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SbpMemberListResponseV1"
+              example:
+                version: "1.0"
+                platform: "desktop"
+                type: "qr"
+                members:
+                  - name: "Банк"
+                    logo: "https://qr.nspk.ru/proxyapp/logo/bank000000000001.png"
+                    url: "bank000000000001://qr.nspk.ru/{QRC_ID}{QUERY_STRING}"
+        400:
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Не передан заголовок X-CLIENT"
+        404:
+          $ref: "#/components/responses/XCachedParamsError404"
+
+  /v2/sbp/members/{type}:
+    get:
+      tags:
+        - Участники СБП
+      summary: Список Участников СБП для кэширования (v2)
+      description: |
+        Метод для получения списка Участников СБП – Банков Плательщика для кэширования на срок не более чем 24 часа.
+
+        Метод возвращает шаблоны прямой или доменной ссылки для перехода в приложение Банка Плательщика.
+
+        Шаблоны передаются для каждого Банка Плательщика в параметре URL. Пример: «bank100000000000://qr.nspk.ru/{QRC_ID}{QUERY_STRING}».
+
+        При формировании Прямой или Доменной ссылки необходимо самостоятельно подставлять в шаблон URL данные из Функциональной ссылки СБП вместо {QRC_ID} и {QUERY_STRING}. Если ссылка не содержит параметров запроса вместо {QUERY_STRING} подставляется пустая строка.
+      operationId: membersListV2
+      parameters:
+        - $ref: "#/components/parameters/XClientId"
+        - $ref: "#/components/parameters/XPlatform"
+        - name: type
+          in: path
+          description: Тип операции
+          required: true
+          schema:
+            $ref: "#/components/schemas/TypeEnum"
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SbpMemberListResponseV2"
+              example:
+                version: "2.0"
+                platform: "desktop"
+                type: "qr"
+                members:
+                  - id: "100000000001"
+                    name: "Банк"
+                    logo: "https://qr.nspk.ru/proxyapp/logo/bank000000000001.png"
+                    url: "bank000000000001://qr.nspk.ru/{QRC_ID}{QUERY_STRING}"
+        400:
+          $ref: "#/components/responses/XClientIdError400"
+        404:
+          $ref: "#/components/responses/XCachedParamsError404"
+
+  /v2/dr/members:
+    get:
+      tags:
+        - Участники ЦР
+      summary: Список участников платформы ЦР по Payload (v2)
+      description: Метод для получения полного списка Участников платформы ЦР и формирования Виджета СБП на стороне Участника СБП – Банка Получателя или Агента ТСП, или ТСП.
+      operationId: drMembersListWithPayload
+      parameters:
+        - $ref: "#/components/parameters/XClientId"
+        - $ref: "#/components/parameters/XPlatform"
+        - $ref: "#/components/parameters/XPayload"
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrMemberListResponse"
+              example:
+                version: "2.0"
+                platform: "desktop"
+                members:
+                  - id: "100000000001"
+                    name: "Банк"
+                    logo: "https://qr.nspk.ru/proxyapp/logo/bank000000000001.png"
+                    url: "bank000000000001://qr.nspk.ru/AS100001ORTF4GAF80KPJ53K186D9A3G?type=01&bank=100000000001&sum=20000&cur=RUB&crc=5798"
+        400:
+          $ref: "#/components/responses/XClientIdError400"
+        404:
+          $ref: "#/components/responses/XPayloadParamsError404"
+
+  /v2/dr/members/qr:
+    get:
+      tags:
+        - Участники ЦР
+      summary: Список участников платформы ЦР для кэширования (v2)
+      description: |
+        Метод для получения списка Участников платформы ЦР – Банков Плательщика для кэширования на срок не более чем 24 часа.
+
+        Метод возвращает шаблоны прямой или доменной ссылки для перехода в приложение Банка Плательщика.
+
+        Шаблоны передаются для каждого Банка Плательщика в параметре URL. Пример: «bank100000000000://qr.nspk.ru/{QRC_ID}{QUERY_STRING}».
+
+        При формировании Прямой или Доменной ссылки необходимо самостоятельно подставлять в шаблон URL данные из Функциональной ссылки СБП вместо {QRC_ID} и {QUERY_STRING}. Если ссылка не содержит параметров запроса вместо {QUERY_STRING} подставляется пустая строка.
+      operationId: drMembersList
+      parameters:
+        - $ref: "#/components/parameters/XClientId"
+        - $ref: "#/components/parameters/XPlatform"
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrMemberListResponse"
+              example:
+                version: "2.0"
+                platform: "desktop"
+                members:
+                  - id: "100000000001"
+                    name: "Банк"
+                    logo: "https://qr.nspk.ru/proxyapp/logo/bank000000000001.png"
+                    url: "bank000000000001://qr.nspk.ru/{QRC_ID}{QUERY_STRING}"
+        400:
+          $ref: "#/components/responses/XClientIdError400"
+        404:
+          $ref: "#/components/responses/XCachedParamsError404"
+
+  /v1/upc/services:
+    get:
+      tags:
+        - Платежные сервисы УПК
+      summary: Список платежных сервисов УПК для кэширования
+      description: |
+        Метод для получения списка платежных сервисов для формирования виджета УПК на стороне Участника УПК для кэширования на срок не более чем 24 часа.
+
+        Метод возвращает шаблоны прямой или доменной ссылки для перехода в приложение Плательщика.
+
+        Шаблоны передаются для каждого Плательщика в параметре URL. Пример: «bank100000000000://qr.nspk.ru/{QRC_ID}».
+
+        При формировании Прямой или Доменной ссылки необходимо самостоятельно подставлять в шаблон URL данные из Функциональной ссылки УПК вместо {QRC_ID}.
+      operationId: upcProductsList
+      parameters:
+        - $ref: "#/components/parameters/XClientId"
+      responses:
+        200:
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpcProductListResponse"
+              example:
+                version: "1.0"
+                members:
+                  - id: "PS0000000001"
+                    name: "СБП"
+                    paymentMethods:
+                      - id: "PP0000000001"
+                        group: "bnpl"
+                        name: "Сервис Рассрочка"
+                        logo: "https://qr.nspk.ru/proxyapp/uniqr/PP0000000004.png"
+                        url: "https://www.service.ru/fintech/promo/c2b-qr-installment/{QRC_ID}"
+                      - id: "PP0000000002"
+                        group: "pay-services"
+                        name: "Супер Пэй"
+                        url: "bank100000000190://qr.nspk.ru/{QRC_ID}?paymentServiceId=PS0000000001"
+                        logo: "https://qr.nspk.ru/proxyapp/uniqr/PP0000000002.svg"
+                  - id: "PS0000000002"
+                    name: "Цифровой Рубль"
+                    paymentMethods: []
+        400:
+          $ref: "#/components/responses/XClientIdError400"
+components:
+  parameters:
+    XClientId:
+      name: X-CLIENT-ID
+      in: header
+      description: |
+        Идентификатор инициатора запроса: Merchant ID для ТСП, Agent ID для Агента ТСП или Member ID для Банка Получателя.
+      required: true
+      schema:
+        type: string
+        minimum: 12
+        maximum: 12
+    XPlatform:
+      name: X-PLATFORM
+      in: header
+      description: |
+        Платформа, на которой будет отображаться виджет.
+
+        ios – iOS устройство;
+        android – Android устройство;
+        desktop – персональный компьютер
+      required: true
+      schema:
+        $ref: "#/components/schemas/PlatformEnum"
+    XPayload:
+      name: X-PAYLOAD
+      in: header
+      description: Payload платежной ссылки СБП
+      required: true
+      schema:
+        type: string
+      example: https://qr.nspk.ru/AS1000670LSS7DN18SJQDNP4B05KLJL2?type=01&bank=100000000001&sum=10000&cur=RUB&crc=C08B
+  responses:
+    XClientIdError400:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "Не передан заголовок X-CLIENT-ID"
+    XPayloadParamsError404:
+      description: Данные не найдены
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "Неправильная платформа, тип платежа или QR код"
+    XCachedParamsError404:
+      description: Данные не найдены
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "Неправильная платформа или тип платежа"
+  schemas:
+    TypeEnum:
+      type: string
+      enum:
+        - qr
+        - sub
+        - b2b
+        - c2g
+        - c2c
+        - b2c
+    PlatformEnum:
+      type: string
+      enum:
+        - ios
+        - android
+        - desktop
+    SbpMemberListResponseV1:
+      type: object
+      properties:
+        version:
+          type: string
+          enum:
+            - "1.0"
+        platform:
+          $ref: "#/components/schemas/PlatformEnum"
+        type:
+          $ref: "#/components/schemas/TypeEnum"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberV1"
+    SbpMemberListResponseV2:
+      type: object
+      properties:
+        version:
+          type: string
+          enum:
+            - "2.0"
+        platform:
+          $ref: "#/components/schemas/PlatformEnum"
+        type:
+          $ref: "#/components/schemas/TypeEnum"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberV2"
+    DrMemberListResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          enum:
+            - "2.0"
+        platform:
+          $ref: "#/components/schemas/PlatformEnum"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberV2"
+    MemberV1:
+      type: object
+      properties:
+        name:
+          type: string
+        logo:
+          type: string
+        url:
+          type: string
+    MemberV2:
+      type: object
+      properties:
+        id:
+          type: string
+          minimum: 12
+          maximum: 12
+        name:
+          type: string
+        logo:
+          type: string
+        url:
+          type: string
+
+    UpcProductListResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          enum:
+            - "1.0"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentService"
+    PaymentService:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор платёжного сервиса
+          example: "PS0000000001"
+        name:
+          type: string
+          description: Название платёжного сервиса
+          example: "Супер Банк"
+        paymentMethods:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentMethod"
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор способа оплаты
+          example: "PP0000000001"
+        group:
+          type: string
+          enum:
+            - bnpl
+            - pay-services
+          description: |
+            Категория способа оплаты
+        name:
+          type: string
+          description: Название способа оплаты
+          example: "Супер пэй"
+        logo:
+          type: string
+          description: URL логотипа способа оплаты
+          example: "https://qr.nspk.ru/proxyapp/logo/bank100000000296.png"
+        url:
+          type: string
+          description: Шаблон ссылки для перехода в приложение
+          example: "https://bank.ru/lk/qr/{QRC_ID}"
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
