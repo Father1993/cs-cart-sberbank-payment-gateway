@@ -1,9 +1,9 @@
 # Task Tracker — AS SberPay API для CS-Cart 4.18 Multivendor
 
 > **Дата создания:** 2026-03-04  
-> **Последнее обновление:** 2026-05-07  
-> **Статус:** Фискализация и возвраты по snapshot реализованы; полный refund из админки и контракт для 1С проверены на проде  
-> **Версия модуля:** 1.1.1 (`addon.xml`)
+> **Последнее обновление:** 2026-05-29  
+> **Статус:** v1.3.0 — СБП C2B landing; регресс hosted/SDK/SBP — см. чеклист G1–S8  
+> **Версия модуля:** 1.3.0 (`addon.xml`)
 
 ---
 
@@ -57,9 +57,8 @@
 | Сценарий                        | Статус      | Описание                                               |
 | ------------------------------- | ----------- | ------------------------------------------------------ |
 | **Оплата картой**               | ✅          | `register.do` → `formUrl` → редирект на страницу Сбера |
-| **SberPay (через форму Сбера)** | ⚠️ Частично | Клиент видит кнопку SberPay на странице Сбера          |
-| **SberPay (нативно)**           | ❌          | QR-код, deeplink — не реализовано                      |
-| **СБП**                         | ❌          | Полностью отсутствует                                  |
+| **SberPay Web SDK**              | ✅          | `checkout_mode=sberpay_sdk`, landing + UMD widget (v1.2.0) |
+| **СБП C2B**                      | ✅          | `checkout_mode=sbp_c2b`, landing QR + qr.nspk.ru (v1.3.0)   |
 
 ---
 
@@ -216,11 +215,33 @@
 - [x] `fn_as_sberpay_api_build_response()` перенесена в `func.php` (исправление фатала после успешного refund)
 - [x] Проверка на проде: заказ оплачен → полный возврат из админки → `REFUNDED` в шлюзе
 
-### Итерация 9 — Поддержка СБП (планируется)
+### Итерация 9 — ✅ Реализовано (2026-05-29), v1.3.0
 
-- [ ] Добавить `qrAttributes.qrType=SBP` в `register()`
-- [ ] Добавить настройку "Включить СБП"
-- [ ] Протестировать на dev-контуре
+- [x] Третий `checkout_mode`: `sbp_c2b` в процессоре и админке
+- [x] `register.do` + `jsonParams` (`qrType=DYNAMIC_QR_SBP`, `sbp.scenario=C2B`)
+- [x] `extractRegisterExternalParams()` → `sbp_payload`, `qrc_id` в `payment_info`
+- [x] Guard перед `fn_clear_cart`: только при `orderId` + `sbp_payload`
+- [x] Landing `as_sberpay_api.sbp` + `pay_sbp.tpl` + `sbp_pay.js` + `qrcode.min.js`
+- [x] Cancel: локальный fail-flow, идемпотентность при статусе F; shared с SDK
+- [x] Документация: FLOW.md §9, SETTINGS.md, чеклист G1–S8
+- [ ] **G1 IFT:** smoke `sbpPayload` + `qrcId` в логе (ручной gate у Сбера)
+- [ ] **G2/G3 + S1–S8:** регресс на IFT / uroven.pro
+
+#### Чеклист v1.3.0 (СБП C2B)
+
+| # | Тест | Ожидание | Статус |
+| --- | --- | --- | --- |
+| G1 | register IFT | `sbpPayload` + `qrcId` в log | ⏳ gate Сбера |
+| G2 R1 | Hosted | Без изменений | ⏳ |
+| G2 R2 | SDK | Без изменений | ⏳ |
+| S1 | register без СБП | Fail, корзина не очищена | ⏳ |
+| S2 | Landing desktop | QR + `<a target=_blank>` | ⏳ |
+| S3 | Landing mobile | Auto-redirect + «Открыть оплату» | ⏳ |
+| S4 | Оплата IFT | callback, статус P | ⏳ |
+| S5 | Cancel SBP | orders.details + repay | ⏳ |
+| S6 | Cancel идемпотентность | Повторный cancel → orders.details | ⏳ |
+| S7 | Late success | Cancel → callback success → P | ⏳ |
+| S8 | Fail return | orders.details | ⏳ |
 
 ---
 
@@ -264,8 +285,8 @@
 
 1. **Callback не работает на локальном контуре** (`uroven.local`) — нужен публичный URL
 2. **Фискализация не работает на тестовом аккаунте** `sbertest_2221` — любые фискальные параметры вызывают `errorCode: 5`; тестировать только на боевом `P272606974206`
-3. **SberPay нативно не реализован** — клиент видит кнопку SberPay только на странице Сбера
-4. **СБП полностью отсутствует**
+3. **SberPay SDK Web** на IFT может требовать отдельного включения у Сбера (`sessionIdWeb 400`)
+4. **СБП C2B** требует включения у Сбера (G1); без `sbpPayload` register падает без очистки корзины
 5. **Частичный возврат из админки при включённом `send_order`** — блокируется, пока нет готового snapshot-bundle; остаток после частичного возврата в шлюзе — через 1С с пересборкой `orderBundle`
 6. **Выгрузка заказа (вебхук) в момент оплаты** не отражает автоматически последующий refund из админки — для актуальных сумм нужен повторный запрос заказа
 
@@ -280,3 +301,4 @@
 | 2026-03-16 | 7        | Константы TAX*\*/PM*\_/PO\_\_, исправление taxType, receiptType |
 | 2026-03-16 | 8        | Закрывающий чек doReceipt при статусе «Выполнен»                |
 | 2026-05-07 | 10       | Fiscal snapshot, `sber_refund_context`, snapshot-first refund, фикс `build_response` для админки |
+| 2026-05-29 | 9        | СБП C2B v1.3.0: landing, guard, cancel idempotency, docs        |

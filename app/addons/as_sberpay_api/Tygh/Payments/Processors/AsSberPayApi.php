@@ -132,7 +132,7 @@ class AsSberPayApi
     private $two_staging;
 
     /**
-     * @var string Режим checkout: hosted | sberpay_sdk
+     * @var string Режим checkout: hosted | sberpay_sdk | sbp_c2b
      */
     private $checkout_mode;
 
@@ -184,9 +184,8 @@ class AsSberPayApi
 
         $this->confirmed_status = !empty($p['confirmed_order_status']) ? $p['confirmed_order_status'] : 'P';
         $this->two_staging = !empty($p['two_staging']) && $p['two_staging'] == '1';
-        $this->checkout_mode = !empty($p['checkout_mode']) && $p['checkout_mode'] === 'sberpay_sdk'
-            ? 'sberpay_sdk'
-            : 'hosted';
+        $mode = $p['checkout_mode'] ?? 'hosted';
+        $this->checkout_mode = in_array($mode, ['sberpay_sdk', 'sbp_c2b'], true) ? $mode : 'hosted';
 
         $this->company = [
             'email' => isset($p['company_email']) ? (string) $p['company_email'] : '',
@@ -255,6 +254,8 @@ class AsSberPayApi
                 'sberpay.backurl' => $this->getSdkBackUrl((int) $order_id, $protocol),
                 'sberbankOnlineAttributes' => json_encode(['language' => 'ru']),
             ];
+        } elseif ($this->isSbpC2b()) {
+            $args['jsonParams'] = $this->buildSbpJsonParams($order_info);
         }
 
         $this->last_register_context = [
@@ -713,6 +714,58 @@ class AsSberPayApi
     public function isSberPaySdk()
     {
         return $this->checkout_mode === 'sberpay_sdk';
+    }
+
+    public function isSbpC2b()
+    {
+        return $this->checkout_mode === 'sbp_c2b';
+    }
+
+    /**
+     * @param array $order_info
+     * @return array<string, string>
+     */
+    public function buildSbpJsonParams($order_info)
+    {
+        $order_id = (int) ($order_info['order_id'] ?? 0);
+
+        return [
+            'qrType' => 'DYNAMIC_QR_SBP',
+            'sbp.scenario' => 'C2B',
+            'description' => 'Заказ #' . $order_id,
+        ];
+    }
+
+    /**
+     * @param array $response
+     * @return array{sbp_payload: string, qrc_id: string}
+     */
+    public function extractRegisterExternalParams(array $response)
+    {
+        $ext = !empty($response['externalParams']) && is_array($response['externalParams'])
+            ? $response['externalParams']
+            : [];
+
+        return [
+            'sbp_payload' => (string) ($ext['sbpPayload'] ?? $ext['sbp_payload'] ?? ''),
+            'qrc_id' => (string) ($ext['qrcId'] ?? $ext['qrc_id'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param array $response
+     */
+    public function isRegisterSuccessForMode(array $response)
+    {
+        if ($this->isError() || empty($response['orderId'])) {
+            return false;
+        }
+
+        if ($this->isSbpC2b()) {
+            return $this->extractRegisterExternalParams($response)['sbp_payload'] !== '';
+        }
+
+        return !empty($response['formUrl']);
     }
 
     /**

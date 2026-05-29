@@ -433,9 +433,13 @@ msgctxt "Languages::addons.as_sberpay_api.checkout_mode_sberpay_sdk"
 msgid "SberPay Web SDK (on-site widget)"
 msgstr "SberPay Web SDK (виджет на сайте)"
 
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_sbp_c2b"
+msgid "SBP C2B (QR and bank app)"
+msgstr "СБП C2B (QR и приложение банка)"
+
 msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hint"
 msgid "Use hosted for the existing card flow. Create a second payment method with SberPay SDK to offer both options on checkout."
-msgstr "Hosted — текущий редирект на страницу Сбера. Для второго способа на checkout создайте отдельный способ оплаты с режимом SberPay SDK."
+msgstr "Hosted — редирект на страницу Сбера. Для SberPay SDK или СБП C2B создайте отдельный способ оплаты с нужным режимом checkout."
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_title"
 msgid "SberPay payment"
@@ -488,3 +492,31 @@ msgstr "Оплата отменена. Вы можете оплатить зак
 msgctxt "Languages::addons.as_sberpay_api.sdk_return_failed"
 msgid "Payment was not completed. You can try again on the order details page."
 msgstr "Оплата не завершена. Попробуйте оплатить заказ снова на странице деталей заказа."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_title"
+msgid "SBP payment"
+msgstr "Оплата через СБП"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_subtitle"
+msgid "Pay via Faster Payments System"
+msgstr "Оплата через Систему быстрых платежей"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_scan_hint"
+msgid "Scan the QR code in your bank app"
+msgstr "Отсканируйте QR-код в приложении банка"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_open"
+msgid "Open payment"
+msgstr "Открыть оплату"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_note"
+msgid "After payment, return to this page or wait for automatic redirect. Status is updated via bank notification."
+msgstr "После оплаты вернитесь на эту страницу или дождитесь автоматического перенаправления. Статус обновляется по уведомлению банка."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_return_cancel"
+msgid "SBP payment was cancelled. You can pay for the order again on the order details page."
+msgstr "Оплата через СБП отменена. Вы можете оплатить заказ повторно на странице деталей заказа."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_return_failed"
+msgid "SBP payment was not completed. You can try again on the order details page."
+msgstr "Оплата через СБП не завершена. Попробуйте оплатить заказ снова на странице деталей заказа."

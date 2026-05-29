@@ -132,6 +132,9 @@
 |----------------|--------------------------------------------------------|
 | `hosted`       | Редирект на платёжную страницу Сбера (`formUrl`) — **по умолчанию** |
 | `sberpay_sdk`  | Landing + SberPay Web SDK (виджет на сайте)            |
+| `sbp_c2b`      | Landing + СБП C2B: QR (desktop) и ссылка на `qr.nspk.ru` (mobile) |
+
+**Предусловие СБП (G1):** включение СБП C2B у ТП Сбера (`Support_ecomm@sberbank.ru`). Без G1 (`register.do` → `externalParams.sbpPayload`, `qrcId`) landing не деплоить.
 
 ---
 
@@ -146,6 +149,12 @@
 На checkout покупатель увидит две радиокнопки. Пока второй способ не создан — UX **идентичен текущему**.
 
 **Предусловие:** включение SberPay SDK Web у ТП Сбера (`Support_ecomm@sberbank.ru`).
+
+### Третий способ: СБП C2B (v1.3.0)
+
+1. **Добавить способ оплаты:** процессор «SberPay API» → режим **СБП C2B** → те же login/password.
+2. **G1:** убедиться в логе `register`, что приходят `externalParams.sbpPayload` и `qrcId`.
+3. На checkout — отдельная радиокнопка; cancel на landing ведёт на `orders.details` (repay), без отмены в банке.
 
 ---
 

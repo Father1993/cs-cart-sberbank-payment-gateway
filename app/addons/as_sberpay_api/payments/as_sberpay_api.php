@@ -167,6 +167,45 @@ if (defined('PAYMENT_NOTIFICATION')) {
     $processor = new AsSberPayApi($processor_data);
     $response = $processor->register($order_info);
 
+    if ($processor->isSbpC2b()) {
+        if ($processor->isRegisterSuccessForMode($response)) {
+            $ext = $processor->extractRegisterExternalParams($response);
+
+            fn_update_order_payment_info($order_id, [
+                'transaction_id' => $response['orderId'],
+                'sbp_payload' => $ext['sbp_payload'],
+                'qrc_id' => $ext['qrc_id'],
+            ]);
+
+            fn_as_sberpay_api_save_fiscal_snapshot(
+                $order_id,
+                $order_info,
+                $processor->getLastRegisterContext(),
+                (string) $response['orderId']
+            );
+
+            fn_clear_cart(\Tygh::$app['session']['cart']);
+            fn_redirect(fn_url('as_sberpay_api.sbp?order_id=' . (int) $order_id, AREA, 'current'));
+            exit;
+        }
+
+        if ($processor->isLogging()) {
+            $processor->log([
+                'error_code' => $processor->getErrorCode(),
+                'error_text' => $processor->getErrorText(),
+                'response' => $response,
+            ], 'SBP register failed');
+        }
+
+        $pp_response = [
+            'order_status' => 'F',
+            'reason_text'  => $processor->getErrorText() ?: __('addons.as_sberpay_api.sbp_return_failed'),
+        ];
+        fn_finish_payment($order_id, $pp_response);
+        fn_as_sberpay_api_route_after_payment($order_id, $pp_response, $processor);
+        exit;
+    }
+
     if (!$processor->isError() && !empty($response['orderId']) && !empty($response['formUrl'])) {
         fn_update_order_payment_info($order_id, [
             'transaction_id' => $response['orderId'],

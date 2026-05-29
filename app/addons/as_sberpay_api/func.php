@@ -178,11 +178,13 @@ function fn_as_sberpay_api_get_sdk_return_reason(array $request)
 }
 
 /**
- * Контекст SDK-landing для заказа или пустой массив.
+ * Контекст landing-оплаты (SDK / SBP) для заказа или пустой массив.
  *
- * @return array{order_info: array, processor_data: array, processor: \Tygh\Payments\Processors\AsSberPayApi, gateway_id: string}
+ * @param int          $order_id
+ * @param array<string> $modes
+ * @return array{order_info: array, processor_data: array, processor: \Tygh\Payments\Processors\AsSberPayApi, gateway_id: string, sbp_payload: string}
  */
-function fn_as_sberpay_api_resolve_sdk_pay_order($order_id)
+function fn_as_sberpay_api_resolve_landing_pay_order($order_id, array $modes)
 {
     $order_id = (int) $order_id;
     if (!$order_id) {
@@ -200,7 +202,9 @@ function fn_as_sberpay_api_resolve_sdk_pay_order($order_id)
     }
 
     $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
-    if (!$processor->isSberPaySdk()) {
+    $mode_ok = ($processor->isSberPaySdk() && in_array('sberpay_sdk', $modes, true))
+        || ($processor->isSbpC2b() && in_array('sbp_c2b', $modes, true));
+    if (!$mode_ok) {
         return [];
     }
 
@@ -209,12 +213,41 @@ function fn_as_sberpay_api_resolve_sdk_pay_order($order_id)
         return [];
     }
 
+    $sbp_payload = '';
+    if ($processor->isSbpC2b()) {
+        $sbp_payload = (string) ($order_info['payment_info']['sbp_payload'] ?? '');
+        if ($sbp_payload === '') {
+            return [];
+        }
+    }
+
     return [
         'order_info' => $order_info,
         'processor_data' => $processor_data,
         'processor' => $processor,
         'gateway_id' => $gateway_id,
+        'sbp_payload' => $sbp_payload,
     ];
+}
+
+/**
+ * Контекст SDK-landing для заказа или пустой массив.
+ *
+ * @return array{order_info: array, processor_data: array, processor: \Tygh\Payments\Processors\AsSberPayApi, gateway_id: string}
+ */
+function fn_as_sberpay_api_resolve_sdk_pay_order($order_id)
+{
+    return fn_as_sberpay_api_resolve_landing_pay_order($order_id, ['sberpay_sdk']);
+}
+
+/**
+ * Контекст SBP-landing для заказа или пустой массив.
+ *
+ * @return array{order_info: array, processor_data: array, processor: \Tygh\Payments\Processors\AsSberPayApi, gateway_id: string, sbp_payload: string}
+ */
+function fn_as_sberpay_api_resolve_sbp_pay_order($order_id)
+{
+    return fn_as_sberpay_api_resolve_landing_pay_order($order_id, ['sbp_c2b']);
 }
 
 /**
@@ -232,7 +265,9 @@ function fn_as_sberpay_api_route_after_payment($order_id, array $pp_response, $p
 
     $reason = !empty($pp_response['reason_text'])
         ? (string) $pp_response['reason_text']
-        : __('addons.as_sberpay_api.sdk_return_failed');
+        : ($processor->isSbpC2b()
+            ? __('addons.as_sberpay_api.sbp_return_failed')
+            : __('addons.as_sberpay_api.sdk_return_failed'));
 
     fn_set_notification('W', __('important'), $reason);
     fn_redirect('orders.details?order_id=' . $order_id);
@@ -240,29 +275,55 @@ function fn_as_sberpay_api_route_after_payment($order_id, array $pp_response, $p
 }
 
 /**
- * Отмена SDK-оплаты с переходом на страницу заказа.
+ * Отмена landing-оплаты (SDK / SBP): локальный fail-flow, без отмены в банке.
+ *
+ * @param int          $order_id
+ * @param array<string> $modes
+ * @return bool|string paid|already_failed|false
  */
-function fn_as_sberpay_api_cancel_sdk_payment($order_id)
+function fn_as_sberpay_api_cancel_landing_payment($order_id, array $modes)
 {
-    $ctx = fn_as_sberpay_api_resolve_sdk_pay_order($order_id);
+    $ctx = fn_as_sberpay_api_resolve_landing_pay_order($order_id, $modes);
     if (!$ctx) {
         return false;
     }
 
-    if (($ctx['order_info']['status'] ?? '') === $ctx['processor']->getConfirmedStatus()) {
+    $processor = $ctx['processor'];
+    $confirmed = $processor->getConfirmedStatus();
+    $status = $ctx['order_info']['status'] ?? '';
+
+    if ($status === $confirmed) {
         return 'paid';
+    }
+
+    $reason = $processor->isSbpC2b()
+        ? __('addons.as_sberpay_api.sbp_return_cancel')
+        : __('addons.as_sberpay_api.sdk_return_cancel');
+
+    if ($status === 'F') {
+        fn_set_notification('W', __('important'), $reason);
+        fn_redirect('orders.details?order_id=' . (int) $order_id);
+        exit;
     }
 
     fn_finish_payment($order_id, [
         'order_status' => 'F',
-        'reason_text' => __('addons.as_sberpay_api.sdk_return_cancel'),
+        'reason_text' => $reason,
     ]);
     fn_as_sberpay_api_route_after_payment($order_id, [
         'order_status' => 'F',
-        'reason_text' => __('addons.as_sberpay_api.sdk_return_cancel'),
-    ], $ctx['processor']);
+        'reason_text' => $reason,
+    ], $processor);
 
     return true;
+}
+
+/**
+ * Отмена SDK-оплаты с переходом на страницу заказа.
+ */
+function fn_as_sberpay_api_cancel_sdk_payment($order_id)
+{
+    return fn_as_sberpay_api_cancel_landing_payment($order_id, ['sberpay_sdk']);
 }
 
 /**
