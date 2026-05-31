@@ -178,6 +178,81 @@ function fn_as_sberpay_api_get_sdk_return_reason(array $request)
 }
 
 /**
+ * Сумма для SDK landing: рубли + копейки + знак ₽ (plain text, без HTML-сущностей).
+ *
+ * @param float|int|string $total
+ * @param string           $currency_code
+ * @return array{full: string, rubles: string, kopecks: string, has_kopecks: bool, currency: string}
+ */
+function fn_as_sberpay_api_format_sdk_amount($total, $currency_code = '')
+{
+    $currencies = \Tygh\Registry::get('currencies');
+
+    if ($currency_code === '') {
+        $currency_code = defined('CART_SECONDARY_CURRENCY') ? CART_SECONDARY_CURRENCY : CART_PRIMARY_CURRENCY;
+    }
+
+    if (empty($currencies[$currency_code])) {
+        $currency_code = CART_PRIMARY_CURRENCY;
+    }
+
+    $currency = $currencies[$currency_code];
+    $decimals = (int) $currency['decimals'];
+    $amount = round((float) $total, $decimals > 0 ? $decimals : 0);
+
+    if (in_array(strtoupper($currency_code), ['RUB', 'RUR'], true)) {
+        $rubles_int = (int) floor($amount);
+        $kopecks_int = (int) round(($amount - $rubles_int) * 100);
+
+        if ($kopecks_int === 100) {
+            $rubles_int++;
+            $kopecks_int = 0;
+        }
+
+        $rubles = number_format($rubles_int, 0, '', ' ');
+        $has_kopecks = $kopecks_int > 0;
+        $kopecks = $has_kopecks ? (',' . str_pad((string) $kopecks_int, 2, '0', STR_PAD_LEFT)) : '';
+        $full = $has_kopecks ? ($rubles . $kopecks . ' ₽') : ($rubles . ' ₽');
+
+        return [
+            'full' => $full,
+            'rubles' => $rubles,
+            'kopecks' => $kopecks,
+            'has_kopecks' => $has_kopecks,
+            'currency' => '₽',
+        ];
+    }
+
+    $dec_sep = (string) ($currency['decimals_separator'] ?: '.');
+    $thousands_sep = html_entity_decode(strip_tags((string) $currency['thousands_separator']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if ($thousands_sep === '') {
+        $thousands_sep = ' ';
+    }
+
+    $value = number_format($amount, $decimals, $dec_sep, $thousands_sep);
+    $chunks = explode($dec_sep, $value, 2);
+    $rubles = $chunks[0];
+    $kopecks = '';
+    $has_kopecks = false;
+
+    if ($decimals > 0 && isset($chunks[1]) && (int) $chunks[1] !== 0) {
+        $kopecks = $dec_sep . str_pad($chunks[1], $decimals, '0', STR_PAD_RIGHT);
+        $has_kopecks = true;
+    }
+
+    $symbol = html_entity_decode(strip_tags((string) $currency['symbol']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $full = ($currency['after'] === 'Y') ? ($rubles . $kopecks . ' ' . $symbol) : ($symbol . $rubles . $kopecks);
+
+    return [
+        'full' => $full,
+        'rubles' => $rubles,
+        'kopecks' => $kopecks,
+        'has_kopecks' => $has_kopecks,
+        'currency' => $symbol,
+    ];
+}
+
+/**
  * Контекст landing-оплаты (SDK / SBP) для заказа или пустой массив.
  *
  * @param int          $order_id

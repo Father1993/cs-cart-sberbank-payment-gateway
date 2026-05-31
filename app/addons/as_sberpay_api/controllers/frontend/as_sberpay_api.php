@@ -68,16 +68,23 @@ if (($order_info['status'] ?? '') === $processor->getConfirmedStatus()) {
     return [CONTROLLER_STATUS_REDIRECT, 'checkout.complete?order_id=' . $order_id];
 }
 
+$order_currency = !empty($order_info['secondary_currency'])
+    ? (string) $order_info['secondary_currency']
+    : (defined('CART_SECONDARY_CURRENCY') ? CART_SECONDARY_CURRENCY : CART_PRIMARY_CURRENCY);
+$order_amount = fn_as_sberpay_api_format_sdk_amount($order_info['total'], $order_currency);
+
 Tygh::$app['view']->assign([
     'order_info' => $order_info,
     'order_id' => $order_id,
-    'order_total_formatted' => fn_format_price_by_currency($order_info['total']),
+    'order_amount' => $order_amount,
+    'order_total_formatted' => $order_amount['full'],
+    'site_host' => (string) \Tygh\Registry::get('config.http_host'),
     'bank_invoice_id' => $ctx['gateway_id'],
     'back_url' => $processor->getSdkBackUrl($order_id, $protocol),
     'cancel_url' => $cancel_url,
     'widget_env' => $processor->getWidgetEnvironment(),
     'sdk_phone' => $processor->formatSdkPhone($order_info['phone'] ?? ''),
-    'sdk_assets_version' => '10508',
+    'sdk_assets_version' => '10509',
     'content_tpl' => 'addons/as_sberpay_api/views/as_sberpay_api/pay.tpl',
 ]);
 

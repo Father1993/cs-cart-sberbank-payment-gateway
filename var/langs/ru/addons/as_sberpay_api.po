@@ -442,12 +442,12 @@ msgid "Use hosted for the existing card flow. Create a second payment method wit
 msgstr "Hosted — редирект на страницу Сбера. Для SberPay SDK или СБП C2B создайте отдельный способ оплаты с нужным режимом checkout."
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_title"
-msgid "SberPay payment"
-msgstr "Оплата SberPay"
+msgid "Pay with SberPay"
+msgstr "Оплата через SberPay"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_subtitle"
-msgid "Secure on-site payment"
-msgstr "Безопасная оплата на сайте"
+msgid "Secure payment on [host]"
+msgstr "Безопасная оплата на [host]"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_order"
 msgid "Order"
@@ -457,21 +457,45 @@ msgctxt "Languages::addons.as_sberpay_api.sdk_pay_amount"
 msgid "Amount due"
 msgstr "К оплате"
 
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_recipient"
+msgid "Recipient: [host]"
+msgstr "Получатель: [host]"
+
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_loading"
 msgid "Opening SberPay..."
-msgstr "Открываем форму оплаты SberPay..."
+msgstr "Открываем SberPay..."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_loading_hint"
+msgid "This usually takes up to 5 seconds."
+msgstr "Обычно это занимает до 5 секунд."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_fallback"
+msgid "The payment form did not open automatically. Your browser may have blocked a popup."
+msgstr "Форма не открылась автоматически. Возможно, браузер заблокировал всплывающее окно."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_cancelled"
+msgid "You cancelled the payment. You can try again."
+msgstr "Вы отменили оплату. Можно попробовать снова."
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_onsite"
-msgid "Pay without leaving the store"
-msgstr "Оплата без перехода на сторонние сайты"
+msgid "Card data is not stored on [host]"
+msgstr "Данные карты не хранятся на [host]"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_secure"
-msgid "Protected by Sber payment service"
-msgstr "Защищённый платёжный сервис Сбера"
+msgid "Payment protected by Sber"
+msgstr "Платёж защищён Сбером"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry"
-msgid "Pay again"
-msgstr "Оплатить"
+msgid "Pay [amount]"
+msgstr "Оплатить [amount]"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry_opening"
+msgid "Opening..."
+msgstr "Открывается..."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry_manual"
+msgid "Open payment manually"
+msgstr "Открыть оплату вручную"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_cancel"
 msgid "Cancel payment"
@@ -479,11 +503,11 @@ msgstr "Отменить оплату"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_back"
 msgid "Return to order"
-msgstr "Вернуться к заказу"
+msgstr "← Вернуться к заказу"
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_pay_note"
-msgid "If the payment window did not open, click Pay again or check your browser settings."
-msgstr "Если окно оплаты не открылось, нажмите «Оплатить» ещё раз или проверьте настройки браузера."
+msgid "If the form did not open, click the payment button again."
+msgstr "Если форма не открылась, нажмите кнопку оплаты ещё раз."
 
 msgctxt "Languages::addons.as_sberpay_api.sdk_return_cancel"
 msgid "Payment was cancelled. You can pay for the order again on the order details page."
