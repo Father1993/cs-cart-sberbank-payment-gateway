@@ -553,6 +553,22 @@ msgctxt "Languages::addons.as_sberpay_api.sbp_pay_note"
 msgid "After payment, return to this page or wait for automatic redirect. Status is updated via bank notification."
 msgstr "After payment, return to this page or wait for automatic redirect. Status is updated via bank notification."
 
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_waiting"
+msgid "Waiting for payment confirmation…"
+msgstr "Waiting for payment confirmation…"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_paid_redirect"
+msgid "Payment confirmed. Redirecting…"
+msgstr "Payment confirmed. Redirecting…"
+
+msgctxt "Languages::sbp_payload"
+msgid "SBP payment link"
+msgstr "SBP payment link"
+
+msgctxt "Languages::qrc_id"
+msgid "SBP QR code ID"
+msgstr "SBP QR code ID"
+
 msgctxt "Languages::addons.as_sberpay_api.sbp_return_cancel"
 msgid "SBP payment was cancelled. You can pay for the order again on the order details page."
 msgstr "SBP payment was cancelled. You can pay for the order again on the order details page."

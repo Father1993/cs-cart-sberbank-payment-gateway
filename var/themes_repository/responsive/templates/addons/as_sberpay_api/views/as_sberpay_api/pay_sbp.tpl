@@ -15,6 +15,8 @@
 .as-sbp-pay__qr-wrap.is-desktop { display: block; }
 .as-sbp-pay__qr { display: inline-block; padding: 12px; border-radius: 12px; background: #fff; border: 1px solid #eef2f7; }
 .as-sbp-pay__hint { margin: 12px 0 0; font: 400 14px/1.45 Arial, sans-serif; color: #4b5563; }
+.as-sbp-pay__status { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; margin-bottom: 20px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font: 500 14px/1.4 Arial, sans-serif; }
+.as-sbp-pay__spinner { width: 18px; height: 18px; margin-top: 2px; border: 2px solid #dbeafe; border-top-color: #2563eb; border-radius: 50%; animation: as-sbp-spin .8s linear infinite; flex-shrink: 0; }
 .as-sbp-pay__actions { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
 .as-sbp-pay__actions .ty-btn { margin: 0; }
 .as-sbp-pay__footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #eef2f7; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
@@ -25,6 +27,7 @@
     .as-sbp-pay__summary { flex-direction: column; gap: 12px; }
     .as-sbp-pay__qr-wrap.is-desktop { display: none; }
 }
+@keyframes as-sbp-spin { to { transform: rotate(360deg); } }
 </style>
 
 <div class="as-sbp-pay" id="as_sberpay_sbp_root">
@@ -48,6 +51,11 @@
             </div>
         </dl>
 
+        <div class="as-sbp-pay__status" id="as_sberpay_sbp_status" aria-live="polite">
+            <span class="as-sbp-pay__spinner" aria-hidden="true"></span>
+            <span class="as-sbp-pay__status-text" id="as_sberpay_sbp_status_text">{__("addons.as_sberpay_api.sbp_pay_waiting")}</span>
+        </div>
+
         <div class="as-sbp-pay__qr-wrap" id="as_sberpay_sbp_qr_wrap">
             <div class="as-sbp-pay__qr" id="as_sberpay_sbp_qr"></div>
             <p class="as-sbp-pay__hint">{__("addons.as_sberpay_api.sbp_pay_scan_hint")}</p>
@@ -67,7 +75,16 @@
 
 <script data-no-defer="true">
     window._asSberpaySbpConfig = {
-        sbpPayload: '{$sbp_payload|escape:javascript nofilter}'
+        orderId: {$order_id},
+        sbpPayload: '{$sbp_payload|escape:javascript nofilter}',
+        statusUrl: '{$status_url|escape:javascript nofilter}',
+        completeUrl: '{$complete_url|escape:javascript nofilter}',
+        pollIntervalMs: 3000,
+        pollMaxMs: 900000,
+        i18n: {
+            waiting: '{__("addons.as_sberpay_api.sbp_pay_waiting")|escape:javascript nofilter}',
+            paid: '{__("addons.as_sberpay_api.sbp_pay_paid_redirect")|escape:javascript nofilter}'
+        }
     };
 </script>
 <script data-no-defer="true" src="{$config.current_location}/js/addons/as_sberpay_api/vendor/qrcode.min.js?v={$sbp_assets_version}"></script>

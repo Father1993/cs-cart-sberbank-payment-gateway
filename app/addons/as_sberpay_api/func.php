@@ -290,7 +290,11 @@ function fn_as_sberpay_api_resolve_landing_pay_order($order_id, array $modes)
 
     $sbp_payload = '';
     if ($processor->isSbpC2b()) {
-        $sbp_payload = (string) ($order_info['payment_info']['sbp_payload'] ?? '');
+        $payment_meta = fn_as_sberpay_api_get_payment_meta($order_id);
+        $sbp_payload = (string) ($payment_meta['sbp_payload'] ?? '');
+        if ($sbp_payload === '') {
+            $sbp_payload = (string) ($order_info['payment_info']['sbp_payload'] ?? '');
+        }
         if ($sbp_payload === '') {
             return [];
         }
@@ -323,6 +327,77 @@ function fn_as_sberpay_api_resolve_sdk_pay_order($order_id)
 function fn_as_sberpay_api_resolve_sbp_pay_order($order_id)
 {
     return fn_as_sberpay_api_resolve_landing_pay_order($order_id, ['sbp_c2b']);
+}
+
+/**
+ * Сохраняет данные register СБП в meta (не в payment_info — parity с SDK для 1С).
+ */
+function fn_as_sberpay_api_save_sbp_register_meta($order_id, $sbp_payload, $qrc_id, $gateway_order_id)
+{
+    $meta = array_filter([
+        'sbp_payload' => trim((string) $sbp_payload),
+        'qrc_id' => trim((string) $qrc_id),
+        'gateway_order_id' => trim((string) $gateway_order_id),
+    ], static function ($value) {
+        return $value !== '';
+    });
+
+    if (!$meta) {
+        return;
+    }
+
+    fn_as_sberpay_api_save_meta((int) $order_id, $meta);
+}
+
+/**
+ * Проверяет оплату СБП в шлюзе и финализирует заказ (идемпотентно, как callback).
+ *
+ * @return array{paid: bool, status?: string, redirect?: string}
+ */
+function fn_as_sberpay_api_try_finalize_sbp_payment($order_id)
+{
+    $order_id = (int) $order_id;
+    $ctx = fn_as_sberpay_api_resolve_sbp_pay_order($order_id);
+    if (!$ctx) {
+        return ['paid' => false, 'status' => 'invalid'];
+    }
+
+    /** @var \Tygh\Payments\Processors\AsSberPayApi $processor */
+    $processor = $ctx['processor'];
+    $order_info = $ctx['order_info'];
+    $confirmed = $processor->getConfirmedStatus();
+    $protocol = (defined('HTTPS') && HTTPS) ? 'https' : 'http';
+    $redirect = fn_url('checkout.complete?order_id=' . $order_id, AREA, $protocol);
+
+    if (($order_info['status'] ?? '') === $confirmed) {
+        return ['paid' => true, 'status' => $confirmed, 'redirect' => $redirect];
+    }
+
+    $gateway_id = $ctx['gateway_id'];
+    $response = $processor->getOrderStatusExtended($gateway_id);
+    if ($processor->isError()) {
+        return ['paid' => false, 'status' => (string) ($order_info['status'] ?? '')];
+    }
+
+    fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
+
+    $order_status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
+    if (in_array($order_status, [1, 2], true) && $processor->usesOrderBundle()) {
+        $processor->refreshClosingReceiptMeta($order_id, $gateway_id, 'payment_confirmed');
+    }
+
+    $pp_response = fn_as_sberpay_api_build_response($response, $processor);
+    if (($pp_response['order_status'] ?? '') === $confirmed) {
+        fn_finish_payment($order_id, $pp_response);
+        fn_order_placement_routines('save', $order_id, [], false);
+
+        return ['paid' => true, 'status' => $confirmed, 'redirect' => $redirect];
+    }
+
+    return [
+        'paid' => false,
+        'status' => (string) ($pp_response['order_status'] ?? ($order_info['status'] ?? '')),
+    ];
 }
 
 /**

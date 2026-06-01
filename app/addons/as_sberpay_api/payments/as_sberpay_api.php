@@ -173,9 +173,14 @@ if (defined('PAYMENT_NOTIFICATION')) {
 
             fn_update_order_payment_info($order_id, [
                 'transaction_id' => $response['orderId'],
-                'sbp_payload' => $ext['sbp_payload'],
-                'qrc_id' => $ext['qrc_id'],
             ]);
+
+            fn_as_sberpay_api_save_sbp_register_meta(
+                $order_id,
+                $ext['sbp_payload'],
+                $ext['qrc_id'],
+                (string) $response['orderId']
+            );
 
             fn_as_sberpay_api_save_fiscal_snapshot(
                 $order_id,

@@ -9,11 +9,23 @@ if (!defined('BOOTSTRAP')) {
     die('Access denied');
 }
 
-if (!in_array($mode, ['pay', 'sbp', 'cancel'], true)) {
+if (!in_array($mode, ['pay', 'sbp', 'cancel', 'sbp_status'], true)) {
     return [CONTROLLER_STATUS_NO_PAGE];
 }
 
 $order_id = !empty($_REQUEST['order_id']) ? (int) $_REQUEST['order_id'] : 0;
+
+if ($mode === 'sbp_status') {
+    $result = fn_as_sberpay_api_try_finalize_sbp_payment($order_id);
+
+    if (defined('AJAX_REQUEST')) {
+        Tygh::$app['ajax']->assign($result);
+    } else {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
 
 if ($mode === 'cancel') {
     $cancel_result = fn_as_sberpay_api_cancel_landing_payment($order_id, ['sberpay_sdk', 'sbp_c2b']);
@@ -48,7 +60,9 @@ if ($mode === 'sbp') {
         'order_total_formatted' => fn_format_price_by_currency($order_info['total']),
         'sbp_payload' => $ctx['sbp_payload'],
         'cancel_url' => $cancel_url,
-        'sbp_assets_version' => '13000',
+        'status_url' => fn_url('as_sberpay_api.sbp_status?order_id=' . $order_id, AREA, $protocol),
+        'complete_url' => fn_url('checkout.complete?order_id=' . $order_id, AREA, $protocol),
+        'sbp_assets_version' => '13200',
         'content_tpl' => 'addons/as_sberpay_api/views/as_sberpay_api/pay_sbp.tpl',
     ]);
 

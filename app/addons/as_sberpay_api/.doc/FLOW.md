@@ -250,7 +250,7 @@ fn_finish_payment → страница результата
 
 ---
 
-## 9. СБП C2B (третий способ оплаты, v1.3.0)
+## 9. СБП C2B (третий способ оплаты, v1.3.0+)
 
 ```
 Checkout: выбран способ с checkout_mode = sbp_c2b
@@ -261,24 +261,27 @@ register.do + jsonParams (qrType=DYNAMIC_QR_SBP, sbp.scenario=C2B)
          ▼
 Guard: orderId + externalParams.sbpPayload (через extractRegisterExternalParams)
   fail → fn_finish_payment(F), корзина НЕ очищается, orders.details
-  ok   → payment_info: transaction_id, sbp_payload, qrc_id; fiscal_snapshot; clear cart
+  ok   → payment_info: только transaction_id (parity с SDK для 1С)
+         meta: sbp_payload, qrc_id, gateway_order_id
+         fiscal_snapshot; clear cart
          │
          ▼
 Redirect → as_sberpay_api.sbp?order_id=N
          │
          ▼
-Landing pay_sbp.tpl
-  desktop: QR (qrcode.min.js) + <a target=_blank> на sbpPayload (qr.nspk.ru)
-  mobile: auto-redirect sbpPayload + кнопка «Открыть оплату»
+Landing pay_sbp.tpl + sbp_pay.js
+  desktop: QR (qrcode.min.js) + кнопка «Открыть оплату» на sbpPayload (qr.nspk.ru)
+  mobile: только кнопка «Открыть оплату» (без auto-redirect)
+  polling каждые 3 с → as_sberpay_api.sbp_status?order_id=N
          │
          ▼
 Оплата в приложении банка (НСПК)
          │
-         ▼
-callback dynamicCallbackUrl + returnUrl (без изменений)
+         ├─ callback dynamicCallbackUrl → fn_finish_payment(P) (как SDK)
+         └─ poll sbp_status → getOrderStatusExtended → fn_finish_payment(P) если ещё O
          │
          ▼
-fn_finish_payment → checkout.complete или orders.details
+paid → redirect checkout.complete
 
 Cancel на landing: локальный fail-flow (без отмены в банке)
   уже P → checkout.complete
@@ -286,6 +289,8 @@ Cancel на landing: локальный fail-flow (без отмены в бан
   иначе → fn_finish_payment(F) → orders.details (repay)
 Поздний success после cancel: callback с orderStatus=2 переводит заказ в P
 ```
+
+**Хранение (v1.3.2):** `sbp_payload` / `qrc_id` — только в `?:sberpay_order_meta`; landing читает meta с fallback на legacy `payment_info.sbp_payload` для старых заказов.
 
 **Три режима checkout:** `hosted` | `sberpay_sdk` | `sbp_c2b` — отдельные способы оплаты, один процессор.
 
