@@ -7,7 +7,7 @@ if (!defined('BOOTSTRAP')) {
 $schema['top']['addons']['items']['as_sberpay_api'] = [
     'title' => 'SberPay API',
     'href' => 'addons.update&addon=as_sberpay_api',
-    'position' => 130,
+    'position' => 120,
     'strict' => true,
     'subitems' => [
         'settings' => [
