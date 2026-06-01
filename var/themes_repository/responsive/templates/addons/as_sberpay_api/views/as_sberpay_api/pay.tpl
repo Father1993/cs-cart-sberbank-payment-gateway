@@ -49,8 +49,6 @@
 .as-sberpay-pay[data-ui-state="fallback"] .as-sberpay-pay__status-hint,
 .as-sberpay-pay[data-ui-state="retry"] .as-sberpay-pay__status-hint,
 .as-sberpay-pay[data-ui-state="error"] .as-sberpay-pay__status-hint { display: none; }
-.as-sberpay-pay[data-ui-state="retry"] .as-sberpay-pay__footer,
-.as-sberpay-pay[data-ui-state="error"] .as-sberpay-pay__footer { display: none; }
 [hidden] { display: none !important; }
 @keyframes as-sberpay-spin { to { transform: rotate(360deg); } }
 @media (max-width: 767px) {

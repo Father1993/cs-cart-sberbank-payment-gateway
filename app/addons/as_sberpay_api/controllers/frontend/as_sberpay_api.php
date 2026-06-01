@@ -84,7 +84,7 @@ Tygh::$app['view']->assign([
     'cancel_url' => $cancel_url,
     'widget_env' => $processor->getWidgetEnvironment(),
     'sdk_phone' => $processor->formatSdkPhone($order_info['phone'] ?? ''),
-    'sdk_assets_version' => '10509',
+    'sdk_assets_version' => '10510',
     'content_tpl' => 'addons/as_sberpay_api/views/as_sberpay_api/pay.tpl',
 ]);
 

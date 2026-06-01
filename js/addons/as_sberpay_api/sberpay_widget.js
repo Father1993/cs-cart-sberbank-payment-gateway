@@ -45,9 +45,6 @@
             if (spinner) {
                 spinner.hidden = false;
             }
-            if (leaveBlock) {
-                leaveBlock.hidden = false;
-            }
             setRetryButton(false, i18n.opening || i18n.retry);
             return;
         }
@@ -61,9 +58,6 @@
             }
             if (spinner) {
                 spinner.hidden = true;
-            }
-            if (leaveBlock) {
-                leaveBlock.hidden = false;
             }
             setRetryButton(true, i18n.manual || i18n.retry);
             return;
@@ -79,9 +73,6 @@
             if (spinner) {
                 spinner.hidden = true;
             }
-            if (leaveBlock) {
-                leaveBlock.hidden = true;
-            }
             setRetryButton(true, i18n.retry);
             return;
         }
@@ -95,9 +86,6 @@
             }
             if (spinner) {
                 spinner.hidden = true;
-            }
-            if (leaveBlock) {
-                leaveBlock.hidden = true;
             }
             setRetryButton(true, i18n.retry);
         }
