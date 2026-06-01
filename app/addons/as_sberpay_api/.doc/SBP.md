@@ -1,12 +1,9 @@
 Особенности работы с СБП на шлюзе электронной коммерции
 
-#
+# Сценарий Действие Результат
 
-Сценарий
-Действие
-Результат
-1 Регистрация заказа
-Создание заказа
+Регистрация заказа
+1 Создание заказа
 для последующей
 оплаты по СБП
 через приложение
@@ -54,10 +51,10 @@ Type=Web2App&option=Connect"
 "https://ift.payecom.ru/pay_ru?orderId=a07ec
 655-3692-4add-b531-622df735b60a",
 "errorMessage": "Обработка запроса
-} прошла без системных ошибок"
+прошла без системных ошибок"
+}
 Тип динамического QR СБП: 02 (type=02)
-2
-Создание
+2 Создание
 подписки СБП
 Запрос register.do, с указанием в
 jsonParams
@@ -85,10 +82,11 @@ ea3-c932-4b42-b9d9-6273022627b9",
 "sbolDeepLink":
 "sberpay://invoicing/v2?bankInvoiceId=06dc
 6ea3c9324b42b9d96273022627b9&operation
-} } Type=Web2App&option=Connect"
+Type=Web2App&option=Connect"
+}
+}
 Тип динамического QR СБП: 03 (type=03)
-3
-Создание заказа
+3 Создание заказа
 для оплаты по
 СБП с
 возможностью
@@ -103,8 +101,7 @@ ea3-c932-4b42-b9d9-6273022627b9",
 "description": "регистрация заказа СБП"
 Ответ на register.do аналогичен п.1
 Тип динамического QR СБП: 02 (type=02)
-4
-Отображение в
+4 Отображение в
 СБОЛ кнопки
 «обратно к
 заказу» для
@@ -122,8 +119,7 @@ ea3-c932-4b42-b9d9-6273022627b9",
 которую будет выполнен переход по
 указанному адресу.
 Если =””, то url подставляется из настроек
-мерча (адрес возврата после платежа, веб-
-страница ТСТ)
+мерча (адрес возврата после платежа, вебстраница ТСТ)
 Если =”” и адреса в настройках обнулены,
 то при регистрации QR СБП параметр не
 передается, на экране СБОЛ не будет
@@ -138,34 +134,30 @@ ASCII. Формат должен соответствовать
 Если заполнено, должно содержать домен.
 Примеры:
 https://pay.mos.ru/mospaynew/newportal/pub
-lic/result?requestUID=21445743-79b2-408d-
-8919-
+lic/result?requestUID=21445743-79b2-408d8919-
 b33bfd64030e&packageUID=b5d2e493-
 5592-4b93-9be1-927c018983c5
 ozon://ozon.ru/thank_you/46601856-
 0076?clearBackStack=true
 Адрес не указан
-5 Оплата заказа, возврат заказа
-Оплата по
+Оплата заказа, возврат заказа
+5 Оплата по
 платежной ссылке
 СБП (QR СБП)
 SbpPayload, полученный по п.1,
-считывается в приложении банка-
-плательщика, клиент подтверждает оплату
+считывается в приложении банкаплательщика, клиент подтверждает оплату
 Статусы заказа в ответ на
 getOrderStatusExtended.do (gose)
 orderStatus = 2
 actionCode = 0
-6
-Оплата по
+6 Оплата по
 платежной ссылке
 СБП (QR СБП) с
 последующим
 созданием
 подписки
 SbpPayload, полученный по п.3,
-считывается в приложении банка-
-плательщика, клиент подтверждает
+считывается в приложении банкаплательщика, клиент подтверждает
 оплату.
 После успешной оплаты клиент создает
 подписку
@@ -176,12 +168,10 @@ attributes (пример)
 "subscriptionId":
 "3cbf9ed8cbb9442abdc1e2ff514ebb2e",
 "memberId": "100000000111
-7
-Создание
+7 Создание
 подписки СБП
 SbpPayload, полученный по п.2,
-считывается в приложении банка-
-плательщика, клиент
+считывается в приложении банкаплательщика, клиент
 создает подписку
 orderStatus = 2
 actionCode = 0
@@ -190,8 +180,7 @@ attributes (пример)
 "subscriptionId":
 "3cbf9ed8cbb9442abdc1e2ff514ebb2e",
 "memberId": "100000000111
-8
-Оплата по
+8 Оплата по
 подписке
 После выполнения п.1 вызывается метод
 paymentOrderBySubscription с
@@ -207,9 +196,7 @@ actionCode = 0
 Идентификатор банка-плательщика, в
 котором создана подписка
 "memberId": "100000000111"
-9
-Возврат
-refund.do
+9 Возврат refund.do
 "orderId":
 "amount": **\_\_** (возможны частичные
 возвраты, сумма указывается в копейках)
@@ -244,16 +231,12 @@ actionCode = 0
     запрос getOrderStatusExtended.do (gose), либо в callback.
 14. Партнер сохраняет SubscritionId и memberId в привязке к клиенту.
     Важно:
-    
-    Согласно правилам НСПК один клиент-физическое лицо в конкретном банке-эмитенте может создать только
+     Согласно правилам НСПК один клиент-физическое лицо в конкретном банке-эмитенте может создать только
     одну подписку для конкретного юридического лица.
-    
-    Если подписка уже создана, при попытке повторного создания подписки операция будет отклонена в банке-
-    эмитенте, за исключением случая, если клиент-физическое лицо захочет поменять счет, привязанный к
+     Если подписка уже создана, при попытке повторного создания подписки операция будет отклонена в банкеэмитенте, за исключением случая, если клиент-физическое лицо захочет поменять счет, привязанный к
     подписке. В этом случае подписка будет сохранена с новым счетом, но с тем же SubscritionId. Партнер получит
     callback (ответ на gose) с тем же SubscritionId.
-    
-    Удалить подписку может только клиент-физическое лицо в приложении своего банка.
+     Удалить подписку может только клиент-физическое лицо в приложении своего банка.
     Комментарии к процессу оплаты по подписке:
 15. Партнер создает заказ методом register.do, указывая в jsonParams : "qrType" : "DYNAMIC_QR_SBP",
     "sbp.scenario" : "C2B ", обязательно заполняя "description" .
@@ -275,11 +258,10 @@ actionCode = 0
 23. Интервал между оплатой и созданием подписки зависит от реализации в банке-эмитенте сценария создания подписки
     и действий клиента-физического лица, и может достигать нескольких минут
     Получение статуса заказа
-    Запрос статуса
-    getOrderStatusExtended.do (gose)
+    Запрос статуса getOrderStatusExtended.do (gose)
     передаваемый параметр - orderId
-    1 Примеры ответов (приведены основные данные)
-    Успешная оплата по
+    Примеры ответов (приведены основные данные)
+    1 Успешная оплата по
     СБП через приложение
     банка (не подписка)
     {
@@ -293,450 +275,507 @@ actionCode = 0
     "name": "sbp.scenario",
     "value": "C2B"
     },
-    "paymentAmountInfo": {
-    "approvedAmount": 1600402,
-    "depositedAmount": 1600402,
-    "refundedAmount": 0,
-    "paymentState": "DEPOSITED"
-    },
-    "transactionAttributes": [
-    {
-    "name": "SbolBankInvoiceId",
-    "value": "bcacc95e80064f2996b7951e3070538f"
-    }
-    {
-    "name": "memberId",
-    "value": "100000000111"
-    },
-    {
-    "name": "extTransactionId",
-    "value": "B4295080208872010000120011360501"
-    }
-    ],
-    "attributes": [
-    {
-    "name": "mdOrder",
-    "value": "bcacc95e-8006-4f29-96b7-951e3070538f"
-    },
-    {
-    "name": "qrcId",
-    "value": "AD10007KKBGDEH9C8NIQ1QHPPFDNNH54"
-    }
-    ],
-    "operations": [
-    {
-    "date": 1708508624608,
-    "type": "AUTHORIZATION",
-    "amount": 1600402,
-    "referenceNumber": "405200490186",
-    "approvalCode": "158594",
-    "actionCode": 0
-    }
-    ],
-    "orderNumber": "0863622194234",
-    "orderStatus": 2,
-    "actionCode": 0,
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 1600402,
-    "currency": "643",
-    "date": 1708508562538,
-    "depositedDate": 1708508624608,
-    "orderDescription": "регистрация заказа ",
-    "authRefNum": "405200490186",
-    "authDateTime": 1708508624608,
-    } "terminalId": "20183665"
-    2
-    Успешная оплата через
-    приложение банка с
-    последующим
-    созданием подписки
-    {
-    "errorCode": "0",
-    { "merchantOrderParams": [
-    "name": "qrType",
-    "value": "DYNAMIC_QR_SBP"
-    { },
-    "name": "sbp.scenario",
-    "value": "C2B_SUBSCRIPTION_WITH_PAYMENT"
-    { },
-    "name": "sbp.subscriptionPurpose",
-    "value": "информация от ТСП с деталями привязки счета"
-    { },
-    "name": "app2app",
-    } "value": "true"
-    "paymentWay": "SBERPAY_SBP_C2B_DYN"
-    },
-    "paymentAmountInfo": {
-    "approvedAmount": 16001,
-    "depositedAmount": 16001,
-    "refundedAmount": 0,
-    "paymentState": "DEPOSITED"
-    },
-    { "transactionAttributes": [
-    "name": "SbolBankInvoiceId",
-    } "value": "bd1bcf4600bf4ab4a7e60c1f37eb9a75"
-    ],
-    { "attributes": [
-    "name": "mdOrder",
-    "value": "bd1bcf46-00bf-4ab4-a7e6-0c1f37eb9a75"
-    { },
-    "name": "qrcId",
-    "value": "BD1P005QT97I6AC49KLRE09MBAE2JS7O"
-    { },
-    "name": "subscriptionId",
-    "value": "d6422960fae848a09d179d43fbc400f9"
-    { },
-    "name": "memberId",
-    } "value": "100000000111"
-    ],
-    { "operations": [
-    "date": 1707121692503,
-    "type": "AUTHORIZATION",
-    "amount": 16001,
-    "referenceNumber": "403600485418",
-    "approvalCode": "026890",
-    } "actionCode": 0
-    ],
-    "orderNumber": "7611775153674",
-    "orderStatus": 2,
-    "actionCode": 0,
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 16001,
-    "currency": "643",
-    "date": 1707121652896,
-    "depositedDate": 1707121692503,
-    "orderDescription": "регистрация заказа ",
-    "authRefNum": "403600485418",
-    "authDateTime": 1707121692503,
-    } "terminalId": "20183665"
-    3
-    Успешная оплата по
-    подписке
-    {
-    "orderNumber": "20060583",
-    "orderStatus": 2,
-    "actionCode": 0,
-    "errorCode": "0",
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 1000,
-    "currency": "643",
-    "date": 1707121733416,
-    "depositedDate": 1707121744397,
-    "orderDescription": "Оплата по связке",
-    "authRefNum": "403600485420",
-    { "merchantOrderParams": [
-    "name": "qrType",
-    "value": "DYNAMIC_QR_SBP"
-    { },
-    "name": "sbp.scenario",
-    } "value": "C2B"
-    ],
-    "paymentWay": "SBERPAY_SBP_C2B_DYN_SUBS"
-    "authDateTime": 1707121744397,
-    "terminalId": "20288435",
-    "paymentAmountInfo": {
-    "approvedAmount": 1000,
-    "depositedAmount": 1000,
-    "refundedAmount": 0,
-    "paymentState": "DEPOSITED"
-    },
-    "bankInfo": {},
-    { "transactionAttributes": [
-    "name": "SbolBankInvoiceId",
-    } "value": "e2df130855ff4283b21fb8d04b9ccfcb"
-    ],
-    { "attributes": [
-    "name": "mdOrder",
-    "value": "e2df1308-55ff-4283-b21f-b8d04b9ccfcb"
-    { },
-    "name": "qrcId",
-    } "value": "BD10002NN2KCR7M39NABH4O95NIUODU3"
-    ],
-    { "operations": [
-    "date": 1707121744397,
-    "type": "AUTHORIZATION",
-    "amount": 1000,
-    "referenceNumber": "403600485420",
-    "approvalCode": "423828",
-    } ] } "actionCode": 0
-    4
-    Успешное создание
-    подписки
-    {
-    "errorCode": "0",
-    "merchantOrderParams": [
-    {
-    "name": "qrType",
-    "value": "SUBSCRIPTION_SBP"
-    },
-    {
-    "name": "sbp.scenario",
-    "value": "C2B_SUBSCRIPTION"
-    },
-    {
-    "name": "sbp.subscriptionPurpose",
-    "value": "Ну-кась проверим-ка"
-    },
-    {
-    "name": "app2app",
-    "value": "true"
-    }
-    ],
-    "bindingInfo": {
-    "clientId": "client_1693389039"
-    },
-    "payerData": {
-    "email": "test@example.com"
-    },
-    "transactionAttributes": [
-    {
-    "name": "SbolBankInvoiceId",
-    "value": "803535bed0fa4c1a9944f2a3541345cc"
-    }
-    ],
-    "attributes": [
-    {
-    "name": "mdOrder",
-    "value": "803535be-d0fa-4c1a-9944-f2a3541345cc"
-    },
-    {
-    "name": "qrcId",
-    "value": "AB1S005HICG0UB1E90K883B4AR14G3SV"
-    },
-    {
-    "name": "subscriptionId",
-    "value": "9e53906ee00b478abb6d1be3fc8f23c0"
-    },
-    {
-    "name": "memberId",
-    "value": "100000000111"
-    },
-    {
-    "name": "phone",
-    "value": "*********0792"
-    }
-    ],
-    "orderNumber": "0545747382784",
-    "orderStatus": 2,
-    "actionCode": 0,
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 0,
-    "currency": "643",
-    "date": 1712059648595,
-    "orderDescription": "регистрация заказа с максимальным набором полей",
-    "terminalId": "20183665"
-    }
-    5
-    Оплата с созданием
-    подписки, но подписка
-    не создана
-    {
-    "errorCode": "0",
-    { "merchantOrderParams": [
-    "name": "qrType",
-    "value": "DYNAMIC_QR_SBP"
-    { },
-    "name": "sbp.scenario",
-    "value": "C2B_SUBSCRIPTION_WITH_PAYMENT"
-    { },
-    "name": "sbp.subscriptionPurpose",
-    "value": "информация от ТСП с деталями привязки счета"
-    { },
-    "name": "app2app",
-    } "value": "true"
-    ],
-    "paymentWay": "SBERPAY_SBP_C2B_DYN"
-    "paymentAmountInfo": {
-    "approvedAmount": 214,
-    "depositedAmount": 214,
-    "refundedAmount": 0,
-    "paymentState": "DEPOSITED"
-    },
-    { "transactionAttributes": [
-    "name": "SbolBankInvoiceId",
-    } "value": "3c9d876236db4f578b02bc9f59563851"
-    ],
-    { "attributes": [
-    "name": "mdOrder",
-    "value": "3c9d8762-36db-4f57-8b02-bc9f59563851"
-    { },
-    "name": "qrcId",
-    } "value": "AD1P002EP15654KL8NRA4RBI8CHKD53N"
-    ],
-    { "operations": [
-    "date": 1709560873230,
-    "type": "AUTHORIZATION",
-    "amount": 214,
-    "referenceNumber": "406400491910",
-    "approvalCode": "850288",
-    } "actionCode": 0
-    ],
-    "orderNumber": "8526268104654",
-    "orderStatus": 2,
-    "actionCode": 0,
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 214,
-    "currency": "643",
-    "date": 1709560827260,
-    "depositedDate": 1709560873230,
-    "orderDescription": "регистрация заказа ",
-    "authRefNum": "406400491910",
-    "authDateTime": 1709560873230,
-    } "terminalId": "20183665"
-    Отличие от п. 5 – не переданы subscriptionId, memberId
-    6
-    Если заказ не оплачен и
-    истек
-    {
-    "orderNumber": "0360288122824",
-    "orderStatus": 6,
-    "actionCode": -2007,
-    "actionCodeDescription": "Истек срок ожидания ввода данных",
-    "errorCode": "0",
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 1566,
-    "currency": "643",
-    "date": 1710222871139,
-    "orderDescription": "регистрация заказа ",
-    "merchantOrderParams": [
-    {
-    "name": "qrType",
-    "value": "DYNAMIC_QR_SBP"
-    },
-    {
-    "name": "sbp.scenario",
-    "value": "C2B"
-    },
-    "terminalId": "20183665",
-    "transactionAttributes": [
-    {
-    "name": "SbolBankInvoiceId",
-    "value": "26e7724616c94521a83870b345eccf23"
-    }
-    ],
-    "attributes": [
-    {
-    "name": "mdOrder",
-    "value": "26e77246-16c9-4521-a838-70b345eccf23"
-    },
-    {
-    "name": "qrcId",
-    "value": "AD10007ED5G6V6MD8R48TQ0DJUUP19HH"
-    }
-    } ]
-    7
-    заказ был создан для
-    создания подписки, но
-    подписка не создана
-    (аналогично для заказа,
-    который был создан, но
-    не был оплачен, и срок
-    жизни которого еще не
-    истёк)
-    {
-    "errorCode": "0",
-    { "merchantOrderParams": [
-    "name": "qrType",
-    "value": "SUBSCRIPTION_SBP"
-    { },
-    "name": "sbp.scenario",
-    "value": "C2B_SUBSCRIPTION"
-    { },
-    "name": "sbp.subscriptionPurpose",
-    "value": "Проверка"
-    },
-    { "transactionAttributes": [
-    "name": "SbolBankInvoiceId",
-    } "value": "bf3e0fe788104aa6af4374294d9657e1"
-    ],
-    { "attributes": [
-    "name": "mdOrder",
-    "value": "bf3e0fe7-8810-4aa6-af43-74294d9657e1"
-    { },
-    "name": "qrcId",
-    } "value": "AB1S00316BNKKJDF9E6ALGP99QMBNTPP"
-    ],
-    "orderNumber": "7840349671674",
-    "orderStatus": 0,
-    "actionCode": -100,
-    "actionCodeDescription": "Не было попыток оплаты",
-    "errorMessage": "Обработка запроса прошла без системных ошибок",
-    "amount": 0,
-    "currency": "643",
-    "date": 1710405230718,
-    "orderDescription": "регистрация заказа с максимальным набором полей",
-    } "terminalId": "20183665"
-    8
-    Попытка оплаты по
-    подписке, которая
-    удалена у эмитента
-    {
-    «errorCode»: «0»,
-    { «merchantOrderParams»: [
-    «name»: «qrType»,
-    «value»: «DYNAMIC_QR_SBP»
-    { },
-    «name»: «sbp.scenario»,
-    «value»: «C2B»
-    },
-    ],
-    «paymentWay»: «SBERPAY_SBP_C2B_DYN_SUBS»
-    { «transactionAttributes»: [
-    «name»: «SbolBankInvoiceId»,
-    } «value»: «2de620f35da34a84953653db127cbee3»
-    ],
-    { «attributes»: [
-    «name»: «mdOrder»,
-    «value»: «2de620f3-5da3-4a84-9536-53db127cbee3»
-    { },
-    «name»: «qrcId»,
-    } «value»: «AD100060M4ECHP3T94OOP1LO1C1F1EST»
-    ],
-    { «operations»: [
-    «date»: 1710506422007,
-    «type»: «AUTHORIZATION»,
-    «amount»: 130,
-    «approvalCode»: «000000»,
-    } «actionCode»: -5031
-    ],
-    «orderNumber»: «3544684621264»,
-    «orderStatus»: 0,
-    «actionCode»: -5031,
-    «actionCodeDescription»: «Подписка не найдена.»,
-    «errorMessage»: «Обработка запроса прошла без системных ошибок»,
-    «amount»: 130,
-    «currency»: «643»,
-    «date»: 1710506408744,
-    «orderDescription»: «регистрация заказа»,
-    «authDateTime»: 1710506422007,
-    } «terminalId»: «20288435»
-    Пояснения по срокам жизни зкааза.
-    Для опеделения срока жизни заказа в запросе register.do используются 2 параметра
-24. sessionTimeoutSecs – время жизни заказа в секундах;
-25. expirationDate – Дата окончания срока жизни заказа (Пример:"2023-12-31T23:59:59")
-    Если в запросе присутствует параметр expirationDate, то значение параметра sessionTimeoutSecs не
-    учитывается.
-    Callback
-    Уведомление по факту
-    создания подписки
-    https://ecomtest.sberbank.ru/callbackUrl
-    additionalParams с параметрами подписки СБП:
-    phone
-    Маскированный Номер телефона Плательщика в формате \***\*\*\*\*\*\***XXXX
-    (только если плательщик Сбера, иначе NULL)
-    subscriptionId
-    Идентификатор сохраненной подписки
-    memberId
-    Идентификатор Банка отправителя, где сохранена подписка
-    extTransactionId
-    Идентификатор Операции СБП C2B, если была оплата
-    qrcId
-    Идентификатор функциональной ссылки
-    Важно для процесса тестирования
-26. В случае, если требуется увидеть оформление новой подписки, необходимо предупредить об этом, чтобы на
-    стороне СБЕРа (через СБОЛ) была удалена подписка. Т.к. согласно правилам НСПК один клиент в конкретном
-    банке-эмитенте может создать только одну подписку для конкретного юридического лица.
-27. Если подписка уже создана, то в сценариях «Создания подписки» и «Оплата с подпиской» в результате
-    получится изменение счета, без изменения subscriptionId.
-28. Удаление/изменение счета подписки возможно только в интерфейсе СБОЛа со стороны Клиента и никаких
-    инструментов для этого, кроме СБОЛа, не предусмотрено.
+
+"paymentAmountInfo": {
+"approvedAmount": 1600402,
+"depositedAmount": 1600402,
+"refundedAmount": 0,
+"paymentState": "DEPOSITED"
+},
+
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "bcacc95e80064f2996b7951e3070538f"
+}
+{
+"name": "memberId",
+"value": "100000000111"
+},
+{
+"name": "extTransactionId",
+"value": "B4295080208872010000120011360501"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "bcacc95e-8006-4f29-96b7-951e3070538f"
+},
+{
+"name": "qrcId",
+"value": "AD10007KKBGDEH9C8NIQ1QHPPFDNNH54"
+}
+],
+"operations": [
+{
+"date": 1708508624608,
+"type": "AUTHORIZATION",
+"amount": 1600402,
+"referenceNumber": "405200490186",
+"approvalCode": "158594",
+"actionCode": 0
+}
+],
+"orderNumber": "0863622194234",
+"orderStatus": 2,
+"actionCode": 0,
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 1600402,
+"currency": "643",
+"date": 1708508562538,
+"depositedDate": 1708508624608,
+"orderDescription": "регистрация заказа ",
+"authRefNum": "405200490186",
+"authDateTime": 1708508624608,
+"terminalId": "20183665"
+}
+2 Успешная оплата через
+приложение банка с
+последующим
+созданием подписки
+{
+"errorCode": "0",
+"merchantOrderParams": [
+{
+"name": "qrType",
+"value": "DYNAMIC_QR_SBP"
+},
+{
+"name": "sbp.scenario",
+"value": "C2B_SUBSCRIPTION_WITH_PAYMENT"
+},
+{
+"name": "sbp.subscriptionPurpose",
+"value": "информация от ТСП с деталями привязки счета"
+},
+{
+"name": "app2app",
+"value": "true"
+}
+"paymentWay": "SBERPAY_SBP_C2B_DYN"
+},
+"paymentAmountInfo": {
+"approvedAmount": 16001,
+"depositedAmount": 16001,
+"refundedAmount": 0,
+"paymentState": "DEPOSITED"
+},
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "bd1bcf4600bf4ab4a7e60c1f37eb9a75"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "bd1bcf46-00bf-4ab4-a7e6-0c1f37eb9a75"
+},
+{
+"name": "qrcId",
+"value": "BD1P005QT97I6AC49KLRE09MBAE2JS7O"
+},
+{
+"name": "subscriptionId",
+"value": "d6422960fae848a09d179d43fbc400f9"
+},
+{
+"name": "memberId",
+"value": "100000000111"
+}
+],
+"operations": [
+{
+"date": 1707121692503,
+"type": "AUTHORIZATION",
+"amount": 16001,
+"referenceNumber": "403600485418",
+"approvalCode": "026890",
+"actionCode": 0
+}
+],
+"orderNumber": "7611775153674",
+"orderStatus": 2,
+"actionCode": 0,
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 16001,
+"currency": "643",
+"date": 1707121652896,
+"depositedDate": 1707121692503,
+"orderDescription": "регистрация заказа ",
+"authRefNum": "403600485418",
+"authDateTime": 1707121692503,
+"terminalId": "20183665"
+}
+3 Успешная оплата по
+подписке
+{
+"orderNumber": "20060583",
+"orderStatus": 2,
+"actionCode": 0,
+"errorCode": "0",
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 1000,
+"currency": "643",
+"date": 1707121733416,
+"depositedDate": 1707121744397,
+"orderDescription": "Оплата по связке",
+"authRefNum": "403600485420",
+"merchantOrderParams": [
+{
+"name": "qrType",
+"value": "DYNAMIC_QR_SBP"
+},
+{
+"name": "sbp.scenario",
+"value": "C2B"
+}
+],
+"paymentWay": "SBERPAY_SBP_C2B_DYN_SUBS"
+"authDateTime": 1707121744397,
+"terminalId": "20288435",
+"paymentAmountInfo": {
+"approvedAmount": 1000,
+"depositedAmount": 1000,
+"refundedAmount": 0,
+"paymentState": "DEPOSITED"
+},
+"bankInfo": {},
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "e2df130855ff4283b21fb8d04b9ccfcb"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "e2df1308-55ff-4283-b21f-b8d04b9ccfcb"
+},
+{
+"name": "qrcId",
+"value": "BD10002NN2KCR7M39NABH4O95NIUODU3"
+}
+],
+"operations": [
+{
+"date": 1707121744397,
+"type": "AUTHORIZATION",
+"amount": 1000,
+"referenceNumber": "403600485420",
+"approvalCode": "423828",
+"actionCode": 0
+}
+]
+}
+4 Успешное создание
+подписки
+{
+"errorCode": "0",
+"merchantOrderParams": [
+{
+"name": "qrType",
+"value": "SUBSCRIPTION_SBP"
+},
+{
+"name": "sbp.scenario",
+"value": "C2B_SUBSCRIPTION"
+},
+{
+"name": "sbp.subscriptionPurpose",
+"value": "Ну-кась проверим-ка"
+},
+{
+"name": "app2app",
+"value": "true"
+}
+],
+"bindingInfo": {
+"clientId": "client_1693389039"
+},
+"payerData": {
+"email": "test@example.com"
+},
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "803535bed0fa4c1a9944f2a3541345cc"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "803535be-d0fa-4c1a-9944-f2a3541345cc"
+},
+{
+"name": "qrcId",
+"value": "AB1S005HICG0UB1E90K883B4AR14G3SV"
+},
+{
+"name": "subscriptionId",
+"value": "9e53906ee00b478abb6d1be3fc8f23c0"
+},
+{
+"name": "memberId",
+"value": "100000000111"
+},
+{
+"name": "phone",
+"value": "*********0792"
+}
+],
+"orderNumber": "0545747382784",
+"orderStatus": 2,
+"actionCode": 0,
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 0,
+"currency": "643",
+"date": 1712059648595,
+"orderDescription": "регистрация заказа с максимальным набором полей",
+"terminalId": "20183665"
+}
+5 Оплата с созданием
+подписки, но подписка
+не создана
+{
+"errorCode": "0",
+"merchantOrderParams": [
+{
+"name": "qrType",
+"value": "DYNAMIC_QR_SBP"
+},
+{
+"name": "sbp.scenario",
+"value": "C2B_SUBSCRIPTION_WITH_PAYMENT"
+},
+{
+"name": "sbp.subscriptionPurpose",
+"value": "информация от ТСП с деталями привязки счета"
+},
+{
+"name": "app2app",
+"value": "true"
+}
+],
+"paymentWay": "SBERPAY_SBP_C2B_DYN"
+"paymentAmountInfo": {
+"approvedAmount": 214,
+"depositedAmount": 214,
+"refundedAmount": 0,
+"paymentState": "DEPOSITED"
+},
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "3c9d876236db4f578b02bc9f59563851"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "3c9d8762-36db-4f57-8b02-bc9f59563851"
+},
+{
+"name": "qrcId",
+"value": "AD1P002EP15654KL8NRA4RBI8CHKD53N"
+}
+],
+"operations": [
+{
+"date": 1709560873230,
+"type": "AUTHORIZATION",
+"amount": 214,
+"referenceNumber": "406400491910",
+"approvalCode": "850288",
+"actionCode": 0
+}
+],
+"orderNumber": "8526268104654",
+"orderStatus": 2,
+"actionCode": 0,
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 214,
+"currency": "643",
+"date": 1709560827260,
+"depositedDate": 1709560873230,
+"orderDescription": "регистрация заказа ",
+"authRefNum": "406400491910",
+"authDateTime": 1709560873230,
+"terminalId": "20183665"
+}
+Отличие от п. 5 – не переданы subscriptionId, memberId
+6 Если заказ не оплачен и
+истек
+{
+"orderNumber": "0360288122824",
+"orderStatus": 6,
+"actionCode": -2007,
+"actionCodeDescription": "Истек срок ожидания ввода данных",
+"errorCode": "0",
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 1566,
+"currency": "643",
+"date": 1710222871139,
+"orderDescription": "регистрация заказа ",
+"merchantOrderParams": [
+{
+"name": "qrType",
+"value": "DYNAMIC_QR_SBP"
+},
+{
+"name": "sbp.scenario",
+"value": "C2B"
+},
+"terminalId": "20183665",
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "26e7724616c94521a83870b345eccf23"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "26e77246-16c9-4521-a838-70b345eccf23"
+},
+{
+"name": "qrcId",
+"value": "AD10007ED5G6V6MD8R48TQ0DJUUP19HH"
+}
+]
+}
+7 заказ был создан для
+создания подписки, но
+подписка не создана
+(аналогично для заказа,
+который был создан, но
+не был оплачен, и срок
+жизни которого еще не
+истёк)
+{
+"errorCode": "0",
+"merchantOrderParams": [
+{
+"name": "qrType",
+"value": "SUBSCRIPTION_SBP"
+},
+{
+"name": "sbp.scenario",
+"value": "C2B_SUBSCRIPTION"
+},
+{
+"name": "sbp.subscriptionPurpose",
+"value": "Проверка"
+},
+"transactionAttributes": [
+{
+"name": "SbolBankInvoiceId",
+"value": "bf3e0fe788104aa6af4374294d9657e1"
+}
+],
+"attributes": [
+{
+"name": "mdOrder",
+"value": "bf3e0fe7-8810-4aa6-af43-74294d9657e1"
+},
+{
+"name": "qrcId",
+"value": "AB1S00316BNKKJDF9E6ALGP99QMBNTPP"
+}
+],
+"orderNumber": "7840349671674",
+"orderStatus": 0,
+"actionCode": -100,
+"actionCodeDescription": "Не было попыток оплаты",
+"errorMessage": "Обработка запроса прошла без системных ошибок",
+"amount": 0,
+"currency": "643",
+"date": 1710405230718,
+"orderDescription": "регистрация заказа с максимальным набором полей",
+"terminalId": "20183665"
+}
+8 Попытка оплаты по
+подписке, которая
+удалена у эмитента
+{
+«errorCode»: «0»,
+«merchantOrderParams»: [
+{
+«name»: «qrType»,
+«value»: «DYNAMIC_QR_SBP»
+},
+{
+«name»: «sbp.scenario»,
+«value»: «C2B»
+},
+],
+«paymentWay»: «SBERPAY_SBP_C2B_DYN_SUBS»
+«transactionAttributes»: [
+{
+«name»: «SbolBankInvoiceId»,
+«value»: «2de620f35da34a84953653db127cbee3»
+}
+],
+«attributes»: [
+{
+«name»: «mdOrder»,
+«value»: «2de620f3-5da3-4a84-9536-53db127cbee3»
+},
+{
+«name»: «qrcId»,
+«value»: «AD100060M4ECHP3T94OOP1LO1C1F1EST»
+}
+],
+«operations»: [
+{
+«date»: 1710506422007,
+«type»: «AUTHORIZATION»,
+«amount»: 130,
+«approvalCode»: «000000»,
+«actionCode»: -5031
+}
+],
+«orderNumber»: «3544684621264»,
+«orderStatus»: 0,
+«actionCode»: -5031,
+«actionCodeDescription»: «Подписка не найдена.»,
+«errorMessage»: «Обработка запроса прошла без системных ошибок»,
+«amount»: 130,
+«currency»: «643»,
+«date»: 1710506408744,
+«orderDescription»: «регистрация заказа»,
+«authDateTime»: 1710506422007,
+«terminalId»: «20288435»
+}
+Пояснения по срокам жизни зкааза.
+Для опеделения срока жизни заказа в запросе register.do используются 2 параметра
+
+1. sessionTimeoutSecs – время жизни заказа в секундах;
+2. expirationDate – Дата окончания срока жизни заказа (Пример:"2023-12-31T23:59:59")
+   Если в запросе присутствует параметр expirationDate, то значение параметра sessionTimeoutSecs не
+   учитывается.
+   Callback
+   Уведомление по факту
+   создания подписки
+   https://ecomtest.sberbank.ru/callbackUrl
+   additionalParams с параметрами подписки СБП:
+   phone
+   Маскированный Номер телефона Плательщика в формате ****\*\*\*****XXXX
+   (только если плательщик Сбера, иначе NULL)
+   subscriptionId
+   Идентификатор сохраненной подписки
+   memberId
+   Идентификатор Банка отправителя, где сохранена подписка
+   extTransactionId
+   Идентификатор Операции СБП C2B, если была оплата
+   qrcId
+   Идентификатор функциональной ссылки
+   Важно для процесса тестирования
+3. В случае, если требуется увидеть оформление новой подписки, необходимо предупредить об этом, чтобы на
+   стороне СБЕРа (через СБОЛ) была удалена подписка. Т.к. согласно правилам НСПК один клиент в конкретном
+   банке-эмитенте может создать только одну подписку для конкретного юридического лица.
+4. Если подписка уже создана, то в сценариях «Создания подписки» и «Оплата с подпиской» в результате
+   получится изменение счета, без изменения subscriptionId.
+5. Удаление/изменение счета подписки возможно только в интерфейсе СБОЛа со стороны Клиента и никаких
+   инструментов для этого, кроме СБОЛа, не предусмотрено.

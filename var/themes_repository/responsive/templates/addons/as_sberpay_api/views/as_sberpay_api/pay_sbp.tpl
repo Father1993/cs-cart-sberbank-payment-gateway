@@ -18,14 +18,23 @@
 .as-sbp-pay__status { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; margin-bottom: 20px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font: 500 14px/1.4 Arial, sans-serif; }
 .as-sbp-pay__spinner { width: 18px; height: 18px; margin-top: 2px; border: 2px solid #dbeafe; border-top-color: #2563eb; border-radius: 50%; animation: as-sbp-spin .8s linear infinite; flex-shrink: 0; }
 .as-sbp-pay__actions { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.as-sbp-pay__actions--mobile { display: none; }
+.as-sbp-pay__status[data-state="paid"] .as-sbp-pay__spinner,
+.as-sbp-pay__status[data-state="expired"] .as-sbp-pay__spinner { display: none; }
+.as-sbp-pay__status[data-state="paid"] { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.as-sbp-pay__status[data-state="expired"] { background: #fffbeb; border-color: #fde68a; color: #92400e; }
 .as-sbp-pay__actions .ty-btn { margin: 0; }
 .as-sbp-pay__footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #eef2f7; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
 .as-sbp-pay__footer .ty-btn { margin: 0; }
 .as-sbp-pay__note { margin: 16px 0 0; font: 400 12px/1.5 Arial, sans-serif; color: #9ca3af; }
+.as-sbp-pay__note--mobile { display: none; }
 @media (max-width: 767px) {
     .as-sbp-pay__card { padding: 22px 18px 18px; border-radius: 14px; }
     .as-sbp-pay__summary { flex-direction: column; gap: 12px; }
     .as-sbp-pay__qr-wrap.is-desktop { display: none; }
+    .as-sbp-pay__actions--mobile { display: flex; }
+    .as-sbp-pay__note--desktop { display: none; }
+    .as-sbp-pay__note--mobile { display: block; }
 }
 @keyframes as-sbp-spin { to { transform: rotate(360deg); } }
 </style>
@@ -61,7 +70,7 @@
             <p class="as-sbp-pay__hint">{__("addons.as_sberpay_api.sbp_pay_scan_hint")}</p>
         </div>
 
-        <div class="as-sbp-pay__actions">
+        <div class="as-sbp-pay__actions as-sbp-pay__actions--mobile">
             <a href="{$sbp_payload|escape:url}" target="_blank" rel="noopener noreferrer" class="ty-btn ty-btn__primary" id="as_sberpay_sbp_open_link">{__("addons.as_sberpay_api.sbp_pay_open")}</a>
         </div>
 
@@ -69,7 +78,8 @@
             <a href="{$cancel_url}" class="ty-btn ty-btn__text">{__("addons.as_sberpay_api.sdk_pay_back")}</a>
         </div>
 
-        <p class="as-sbp-pay__note">{__("addons.as_sberpay_api.sbp_pay_note")}</p>
+        <p class="as-sbp-pay__note as-sbp-pay__note--desktop">{__("addons.as_sberpay_api.sbp_pay_desktop_note")}</p>
+        <p class="as-sbp-pay__note as-sbp-pay__note--mobile">{__("addons.as_sberpay_api.sbp_pay_note")}</p>
     </div>
 </div>
 
@@ -78,12 +88,15 @@
         orderId: {$order_id},
         sbpPayload: '{$sbp_payload|escape:javascript nofilter}',
         statusUrl: '{$status_url|escape:javascript nofilter}',
+        expireUrl: '{$expire_url|escape:javascript nofilter}',
         completeUrl: '{$complete_url|escape:javascript nofilter}',
+        detailsUrl: '{"orders.details?order_id=`$order_id`"|fn_url|escape:javascript nofilter}',
         pollIntervalMs: 3000,
-        pollMaxMs: 900000,
+        pollMaxMs: 600000,
         i18n: {
             waiting: '{__("addons.as_sberpay_api.sbp_pay_waiting")|escape:javascript nofilter}',
-            paid: '{__("addons.as_sberpay_api.sbp_pay_paid_redirect")|escape:javascript nofilter}'
+            paid: '{__("addons.as_sberpay_api.sbp_pay_paid_redirect")|escape:javascript nofilter}',
+            expired: '{__("addons.as_sberpay_api.sbp_pay_expired_redirect")|escape:javascript nofilter}'
         }
     };
 </script>

@@ -16,14 +16,14 @@ if (!in_array($mode, ['pay', 'sbp', 'cancel', 'sbp_status'], true)) {
 $order_id = !empty($_REQUEST['order_id']) ? (int) $_REQUEST['order_id'] : 0;
 
 if ($mode === 'sbp_status') {
-    $result = fn_as_sberpay_api_try_finalize_sbp_payment($order_id);
+    $action = !empty($_REQUEST['action']) ? (string) $_REQUEST['action'] : '';
+    $result = $action === 'expire'
+        ? fn_as_sberpay_api_try_expire_sbp_payment($order_id)
+        : fn_as_sberpay_api_try_finalize_sbp_payment($order_id);
 
-    if (defined('AJAX_REQUEST')) {
-        Tygh::$app['ajax']->assign($result);
-    } else {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($result, JSON_UNESCAPED_UNICODE);
-    }
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -50,7 +50,9 @@ if ($mode === 'sbp') {
     $processor = $ctx['processor'];
     $order_info = $ctx['order_info'];
 
-    if (($order_info['status'] ?? '') === $processor->getConfirmedStatus()) {
+    if (($order_info['status'] ?? '') === $processor->getConfirmedStatus()
+        || fn_as_sberpay_api_is_sbp_payment_settled($order_info, $processor, $order_id)
+    ) {
         return [CONTROLLER_STATUS_REDIRECT, 'checkout.complete?order_id=' . $order_id];
     }
 
@@ -61,8 +63,9 @@ if ($mode === 'sbp') {
         'sbp_payload' => $ctx['sbp_payload'],
         'cancel_url' => $cancel_url,
         'status_url' => fn_url('as_sberpay_api.sbp_status?order_id=' . $order_id, AREA, $protocol),
+        'expire_url' => fn_url('as_sberpay_api.sbp_status?order_id=' . $order_id . '&action=expire', AREA, $protocol),
         'complete_url' => fn_url('checkout.complete?order_id=' . $order_id, AREA, $protocol),
-        'sbp_assets_version' => '13200',
+        'sbp_assets_version' => '13201',
         'content_tpl' => 'addons/as_sberpay_api/views/as_sberpay_api/pay_sbp.tpl',
     ]);
 

@@ -330,6 +330,91 @@ function fn_as_sberpay_api_resolve_sbp_pay_order($order_id)
 }
 
 /**
+ * Контекст poll/expire СБП: без sbp_payload (достаточно transaction_id).
+ *
+ * @return array{order_info: array, processor_data: array, processor: \Tygh\Payments\Processors\AsSberPayApi, gateway_id: string}
+ */
+function fn_as_sberpay_api_resolve_sbp_status_order($order_id)
+{
+    $order_id = (int) $order_id;
+    if (!$order_id) {
+        return [];
+    }
+
+    $order_info = fn_get_order_info($order_id);
+    if (!$order_info) {
+        return [];
+    }
+
+    $processor_data = fn_get_processor_data($order_info['payment_id']);
+    if (($processor_data['processor_script'] ?? '') !== 'as_sberpay_api.php') {
+        return [];
+    }
+
+    $processor = new \Tygh\Payments\Processors\AsSberPayApi($processor_data);
+    if (!$processor->isSbpC2b()) {
+        return [];
+    }
+
+    $gateway_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
+    if ($gateway_id === '') {
+        return [];
+    }
+
+    return [
+        'order_info' => $order_info,
+        'processor_data' => $processor_data,
+        'processor' => $processor,
+        'gateway_id' => $gateway_id,
+    ];
+}
+
+/**
+ * Заказ СБП уже оплачен (статус CS-Cart, payment_info или meta шлюза).
+ */
+function fn_as_sberpay_api_is_sbp_payment_settled(array $order_info, $processor, $order_id = 0)
+{
+    $confirmed = $processor->getConfirmedStatus();
+    if (($order_info['status'] ?? '') === $confirmed) {
+        return true;
+    }
+
+    $payment_info = !empty($order_info['payment_info']) && is_array($order_info['payment_info'])
+        ? $order_info['payment_info']
+        : [];
+
+    $gateway_state = strtoupper((string) ($payment_info['gateway_status'] ?? ''));
+    if (in_array($gateway_state, ['DEPOSITED', 'APPROVED'], true)) {
+        return true;
+    }
+
+    if (!empty($payment_info['gateway_deposited']) && (float) $payment_info['gateway_deposited'] > 0) {
+        return true;
+    }
+
+    if ($order_id) {
+        $meta = fn_as_sberpay_api_get_payment_meta((int) $order_id);
+        if (in_array((int) ($meta['order_status'] ?? -1), [1, 2], true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * URL редиректа после успешной оплаты СБП.
+ */
+function fn_as_sberpay_api_get_sbp_complete_url($order_id, $protocol = 'current')
+{
+    if ($protocol === 'current') {
+        $protocol = (defined('HTTPS') && HTTPS) ? 'https' : 'http';
+    }
+
+    return fn_url('checkout.complete?order_id=' . (int) $order_id, AREA, $protocol);
+}
+
+/**
  * Сохраняет данные register СБП в meta (не в payment_info — parity с SDK для 1С).
  */
 function fn_as_sberpay_api_save_sbp_register_meta($order_id, $sbp_payload, $qrc_id, $gateway_order_id)
@@ -357,7 +442,7 @@ function fn_as_sberpay_api_save_sbp_register_meta($order_id, $sbp_payload, $qrc_
 function fn_as_sberpay_api_try_finalize_sbp_payment($order_id)
 {
     $order_id = (int) $order_id;
-    $ctx = fn_as_sberpay_api_resolve_sbp_pay_order($order_id);
+    $ctx = fn_as_sberpay_api_resolve_sbp_status_order($order_id);
     if (!$ctx) {
         return ['paid' => false, 'status' => 'invalid'];
     }
@@ -366,10 +451,9 @@ function fn_as_sberpay_api_try_finalize_sbp_payment($order_id)
     $processor = $ctx['processor'];
     $order_info = $ctx['order_info'];
     $confirmed = $processor->getConfirmedStatus();
-    $protocol = (defined('HTTPS') && HTTPS) ? 'https' : 'http';
-    $redirect = fn_url('checkout.complete?order_id=' . $order_id, AREA, $protocol);
+    $redirect = fn_as_sberpay_api_get_sbp_complete_url($order_id);
 
-    if (($order_info['status'] ?? '') === $confirmed) {
+    if (fn_as_sberpay_api_is_sbp_payment_settled($order_info, $processor, $order_id)) {
         return ['paid' => true, 'status' => $confirmed, 'redirect' => $redirect];
     }
 
@@ -398,6 +482,64 @@ function fn_as_sberpay_api_try_finalize_sbp_payment($order_id)
         'paid' => false,
         'status' => (string) ($pp_response['order_status'] ?? ($order_info['status'] ?? '')),
     ];
+}
+
+/**
+ * Истечение ожидания оплаты на landing: финальная проверка шлюза, иначе fail (O/N → F).
+ *
+ * @return array{paid?: bool, expired?: bool, status?: string, redirect?: string}
+ */
+function fn_as_sberpay_api_try_expire_sbp_payment($order_id)
+{
+    $order_id = (int) $order_id;
+    $finalize = fn_as_sberpay_api_try_finalize_sbp_payment($order_id);
+    if (!empty($finalize['paid'])) {
+        return $finalize;
+    }
+
+    $ctx = fn_as_sberpay_api_resolve_sbp_status_order($order_id);
+    if (!$ctx) {
+        return ['expired' => false, 'status' => 'invalid'];
+    }
+
+    /** @var \Tygh\Payments\Processors\AsSberPayApi $processor */
+    $processor = $ctx['processor'];
+    $order_info = fn_get_order_info($order_id) ?: $ctx['order_info'];
+    $confirmed = $processor->getConfirmedStatus();
+    $status = (string) ($order_info['status'] ?? '');
+    $redirect = fn_url('orders.details?order_id=' . $order_id, AREA, 'current');
+
+    if (fn_as_sberpay_api_is_sbp_payment_settled($order_info, $processor, $order_id)) {
+        return [
+            'paid' => true,
+            'status' => $confirmed,
+            'redirect' => fn_as_sberpay_api_get_sbp_complete_url($order_id),
+        ];
+    }
+
+    if ($status === $confirmed) {
+        return [
+            'paid' => true,
+            'status' => $confirmed,
+            'redirect' => fn_as_sberpay_api_get_sbp_complete_url($order_id),
+        ];
+    }
+
+    if ($status === 'F') {
+        return ['expired' => true, 'status' => 'F', 'redirect' => $redirect];
+    }
+
+    if (!in_array($status, ['O', 'N'], true)) {
+        return ['expired' => false, 'status' => $status];
+    }
+
+    $reason = __('addons.as_sberpay_api.sbp_pay_expired');
+    fn_finish_payment($order_id, [
+        'order_status' => 'F',
+        'reason_text' => $reason,
+    ]);
+
+    return ['expired' => true, 'status' => 'F', 'redirect' => $redirect];
 }
 
 /**

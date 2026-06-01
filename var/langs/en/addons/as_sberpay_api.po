@@ -561,6 +561,18 @@ msgctxt "Languages::addons.as_sberpay_api.sbp_pay_paid_redirect"
 msgid "Payment confirmed. Redirecting…"
 msgstr "Payment confirmed. Redirecting…"
 
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_expired"
+msgid "Payment time expired. You can pay for the order again on the order details page."
+msgstr "Payment time expired. You can pay for the order again on the order details page."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_expired_redirect"
+msgid "Payment time expired. Redirecting…"
+msgstr "Payment time expired. Redirecting…"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_desktop_note"
+msgid "Scan the QR code in your bank app. This page will redirect automatically after payment."
+msgstr "Scan the QR code in your bank app. This page will redirect automatically after payment."
+
 msgctxt "Languages::sbp_payload"
 msgid "SBP payment link"
 msgstr "SBP payment link"

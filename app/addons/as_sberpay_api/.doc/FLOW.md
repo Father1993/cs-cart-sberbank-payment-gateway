@@ -273,6 +273,7 @@ Landing pay_sbp.tpl + sbp_pay.js
   desktop: QR (qrcode.min.js) + кнопка «Открыть оплату» на sbpPayload (qr.nspk.ru)
   mobile: только кнопка «Открыть оплату» (без auto-redirect)
   polling каждые 3 с → as_sberpay_api.sbp_status?order_id=N
+  таймаут 10 мин → sbp_status&action=expire → F + orders.details
          │
          ▼
 Оплата в приложении банка (НСПК)
