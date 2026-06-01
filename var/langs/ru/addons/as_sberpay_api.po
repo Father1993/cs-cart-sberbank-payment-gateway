@@ -297,6 +297,22 @@ msgctxt "Languages::addons.as_sberpay_api.refund_bundle_rebuild_required"
 msgid "This refund bundle must be rebuilt in 1C before sending it to Sber"
 msgstr "Для этого возврата orderBundle нужно пересобрать в 1С перед отправкой в Сбер"
 
+msgctxt "SettingsSections::as_sberpay_api::general"
+msgid "General"
+msgstr "Общие"
+
+msgctxt "SettingsOptions::as_sberpay_api::show_ofd_receipt_links"
+msgid "Show links to fiscal receipts in OFD (admin order page and storefront order details)"
+msgstr "Показывать ссылки на чеки в ОФД (страница заказа в админке и детали заказа на витрине)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_links_title"
+msgid "Receipts in OFD"
+msgstr "Чеки в ОФД"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_open_ofd"
+msgid "Open in OFD"
+msgstr "Открыть в ОФД"
+
 msgctxt "Languages::addons.as_sberpay_api.receipt_status_title"
 msgid "Fiscal receipts"
 msgstr "Фискальные чеки"

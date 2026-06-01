@@ -14,6 +14,13 @@
                     {if $rv.prepayment.updated_at_formatted}
                         <span class="muted">({$rv.prepayment.updated_at_formatted})</span>
                     {/if}
+                    {if $rv.prepayment.ofd_url}
+                        <div>
+                            <a href="{$rv.prepayment.ofd_url|escape:url}" target="_blank" rel="noopener noreferrer">
+                                {__("addons.as_sberpay_api.receipt_open_ofd")}
+                            </a>
+                        </div>
+                    {/if}
                 </div>
             {/if}
             {if $rv.closing}
@@ -27,6 +34,13 @@
                     {if $rv.closing.updated_at_formatted}
                         <span class="muted">({$rv.closing.updated_at_formatted})</span>
                     {/if}
+                    {if $rv.closing.ofd_url}
+                        <div>
+                            <a href="{$rv.closing.ofd_url|escape:url}" target="_blank" rel="noopener noreferrer">
+                                {__("addons.as_sberpay_api.receipt_open_ofd")}
+                            </a>
+                        </div>
+                    {/if}
                 </div>
             {/if}
             {if $rv.has_refund && $rv.refund}
@@ -39,6 +53,13 @@
                     {/if}
                     {if $rv.refund.updated_at_formatted}
                         <span class="muted">({$rv.refund.updated_at_formatted})</span>
+                    {/if}
+                    {if $rv.refund.ofd_url}
+                        <div>
+                            <a href="{$rv.refund.ofd_url|escape:url}" target="_blank" rel="noopener noreferrer">
+                                {__("addons.as_sberpay_api.receipt_open_ofd")}
+                            </a>
+                        </div>
                     {/if}
                 </div>
             {/if}

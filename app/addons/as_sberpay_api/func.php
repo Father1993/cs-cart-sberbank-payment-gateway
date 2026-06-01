@@ -1048,6 +1048,55 @@ function fn_as_sberpay_api_build_receipt_line_view($status, $updated_at = 0, $er
 }
 
 /**
+ * Включены ли ссылки на чеки в ОФД (настройка модуля).
+ */
+function fn_as_sberpay_api_ofd_receipt_links_enabled()
+{
+    if (\Tygh\Registry::get('addons.as_sberpay_api.status') !== 'A') {
+        return false;
+    }
+
+    // Пустое значение после обновления до 1.3.2 без «Обновить» модуля = default Y из addon.xml.
+    return \Tygh\Registry::get('addons.as_sberpay_api.show_ofd_receipt_links') !== 'N';
+}
+
+/**
+ * Ссылки на чеки ОФД для UI (только валидные http/https URL из meta).
+ *
+ * @return list<array{type: string, url: string, title: string}>
+ */
+function fn_as_sberpay_api_build_ofd_receipt_links(array $meta)
+{
+    $map = [
+        'prepayment' => ['key' => 'prepayment_receipt', 'title' => 'receipt_prepayment_title'],
+        'closing'    => ['key' => 'closing_receipt', 'title' => 'receipt_closing_title'],
+        'refund'     => ['key' => 'refund_receipt', 'title' => 'receipt_refund_title'],
+    ];
+    $links = [];
+
+    foreach ($map as $type => $cfg) {
+        $block = !empty($meta[$cfg['key']]) && is_array($meta[$cfg['key']]) ? $meta[$cfg['key']] : [];
+        $url = trim((string) ($block['receipt_url'] ?? ''));
+        if ($url === '') {
+            continue;
+        }
+
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            continue;
+        }
+
+        $links[] = [
+            'type'  => $type,
+            'url'   => $url,
+            'title' => (string) __('addons.as_sberpay_api.' . $cfg['title']),
+        ];
+    }
+
+    return $links;
+}
+
+/**
  * Готовит блок UI статусов фискальных чеков для orders.details.
  */
 function fn_as_sberpay_api_build_receipt_status_view(array $order, array $meta)
@@ -1134,6 +1183,24 @@ function fn_as_sberpay_api_get_order_info(&$order, $additional_data)
 
         $order['sber_payment_meta'] = $meta;
         $order['sber_receipt_status_view'] = fn_as_sberpay_api_build_receipt_status_view($order, $meta);
+
+        if (defined('AREA') && AREA !== 'C' && fn_as_sberpay_api_ofd_receipt_links_enabled()) {
+            $links = fn_as_sberpay_api_build_ofd_receipt_links($meta);
+            if ($links) {
+                $order['sber_receipt_status_view']['receipt_links'] = $links;
+                $line_keys = [
+                    'prepayment' => 'prepayment',
+                    'closing'    => 'closing',
+                    'refund'     => 'refund',
+                ];
+                foreach ($links as $link) {
+                    $line_key = $line_keys[$link['type']] ?? '';
+                    if ($line_key !== '' && !empty($order['sber_receipt_status_view'][$line_key])) {
+                        $order['sber_receipt_status_view'][$line_key]['ofd_url'] = $link['url'];
+                    }
+                }
+            }
+        }
     }
 }
 
