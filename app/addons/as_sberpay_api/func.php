@@ -415,6 +415,53 @@ function fn_as_sberpay_api_get_sbp_complete_url($order_id, $protocol = 'current'
 }
 
 /**
+ * Список банков НСПК для виджета СБП (proxy widget.cbrpay.ru, SBP.md п.3).
+ *
+ * @return array{members?: array, version?: string}
+ */
+function fn_as_sberpay_api_fetch_sbp_widget_members($sbp_payload, $platform = 'android')
+{
+    $sbp_payload = trim((string) $sbp_payload);
+    if ($sbp_payload === '' || strpos($sbp_payload, 'http') !== 0) {
+        return ['members' => []];
+    }
+
+    if (!in_array($platform, ['ios', 'android', 'desktop'], true)) {
+        $platform = 'android';
+    }
+
+    $client = preg_replace('/[^a-z0-9]/i', '', (string) \Tygh\Registry::get('config.http_host'));
+    if (strlen($client) < 2) {
+        $client = 'uroven';
+    }
+    $client = substr($client, 0, 64);
+
+    $ch = curl_init('https://widget.cbrpay.ru/v1/members');
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPGET => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'X-CLIENT: ' . $client,
+            'X-PLATFORM: ' . $platform,
+            'X-PAYLOAD: ' . $sbp_payload,
+        ],
+    ]);
+    $raw = curl_exec($ch);
+    curl_close($ch);
+
+    if (!$raw) {
+        return ['members' => []];
+    }
+
+    $data = json_decode($raw, true);
+
+    return is_array($data) ? $data : ['members' => []];
+}
+
+/**
  * Сохраняет данные register СБП в meta (не в payment_info — parity с SDK для 1С).
  */
 function fn_as_sberpay_api_save_sbp_register_meta($order_id, $sbp_payload, $qrc_id, $gateway_order_id)

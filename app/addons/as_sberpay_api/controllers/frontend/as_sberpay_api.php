@@ -9,11 +9,24 @@ if (!defined('BOOTSTRAP')) {
     die('Access denied');
 }
 
-if (!in_array($mode, ['pay', 'sbp', 'cancel', 'sbp_status'], true)) {
+if (!in_array($mode, ['pay', 'sbp', 'cancel', 'sbp_status', 'sbp_members'], true)) {
     return [CONTROLLER_STATUS_NO_PAGE];
 }
 
 $order_id = !empty($_REQUEST['order_id']) ? (int) $_REQUEST['order_id'] : 0;
+
+if ($mode === 'sbp_members') {
+    $ctx = fn_as_sberpay_api_resolve_sbp_pay_order($order_id);
+    $platform = !empty($_REQUEST['platform']) ? (string) $_REQUEST['platform'] : 'android';
+    $result = $ctx
+        ? fn_as_sberpay_api_fetch_sbp_widget_members($ctx['sbp_payload'], $platform)
+        : ['members' => []];
+
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 if ($mode === 'sbp_status') {
     $action = !empty($_REQUEST['action']) ? (string) $_REQUEST['action'] : '';
@@ -63,9 +76,10 @@ if ($mode === 'sbp') {
         'sbp_payload' => $ctx['sbp_payload'],
         'cancel_url' => $cancel_url,
         'status_url' => fn_url('as_sberpay_api.sbp_status?order_id=' . $order_id, AREA, $protocol),
+        'members_url' => fn_url('as_sberpay_api.sbp_members?order_id=' . $order_id, AREA, $protocol),
         'expire_url' => fn_url('as_sberpay_api.sbp_status?order_id=' . $order_id . '&action=expire', AREA, $protocol),
         'complete_url' => fn_url('checkout.complete?order_id=' . $order_id, AREA, $protocol),
-        'sbp_assets_version' => '13201',
+        'sbp_assets_version' => '13202',
         'content_tpl' => 'addons/as_sberpay_api/views/as_sberpay_api/pay_sbp.tpl',
     ]);
 

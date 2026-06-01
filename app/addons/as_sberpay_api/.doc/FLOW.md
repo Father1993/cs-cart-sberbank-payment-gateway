@@ -270,8 +270,8 @@ Redirect → as_sberpay_api.sbp?order_id=N
          │
          ▼
 Landing pay_sbp.tpl + sbp_pay.js
-  desktop: QR (qrcode.min.js) + кнопка «Открыть оплату» на sbpPayload (qr.nspk.ru)
-  mobile: только кнопка «Открыть оплату» (без auto-redirect)
+  desktop: QR (qrcode.min.js)
+  mobile: виджет банков НСПК (proxy widget.cbrpay.ru/v1/members) + QR + fallback на sbpPayload
   polling каждые 3 с → as_sberpay_api.sbp_status?order_id=N
   таймаут 10 мин → sbp_status&action=expire → F + orders.details
          │

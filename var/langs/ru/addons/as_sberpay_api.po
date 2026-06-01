@@ -549,6 +549,10 @@ msgctxt "Languages::addons.as_sberpay_api.sbp_pay_open"
 msgid "Open payment"
 msgstr "Открыть оплату"
 
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_choose_bank"
+msgid "Choose your bank to pay via SBP"
+msgstr "Выберите банк для оплаты через СБП"
+
 msgctxt "Languages::addons.as_sberpay_api.sbp_pay_note"
 msgid "After payment, return to this page or wait for automatic redirect. Status is updated via bank notification."
 msgstr "После оплаты вернитесь на эту страницу или дождитесь автоматического перенаправления. Статус обновляется по уведомлению банка."

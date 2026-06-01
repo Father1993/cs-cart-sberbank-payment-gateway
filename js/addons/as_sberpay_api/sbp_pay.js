@@ -5,6 +5,10 @@
     var payload = config.sbpPayload || '';
     var qrWrap = document.getElementById('as_sberpay_sbp_qr_wrap');
     var qrEl = document.getElementById('as_sberpay_sbp_qr');
+    var banksWrap = document.getElementById('as_sberpay_sbp_banks');
+    var banksList = document.getElementById('as_sberpay_sbp_banks_list');
+    var fallbackWrap = document.getElementById('as_sberpay_sbp_fallback');
+    var fallbackBtn = document.getElementById('as_sberpay_sbp_fallback_btn');
     var statusRoot = document.getElementById('as_sberpay_sbp_status');
     var statusText = document.getElementById('as_sberpay_sbp_status_text');
     var pollTimer = null;
@@ -22,14 +26,100 @@
             || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
-    if (payload && !isMobile() && qrWrap && qrEl && typeof QRCode !== 'undefined') {
-        qrWrap.classList.add('is-desktop');
+    function detectPlatform() {
+        var ua = navigator.userAgent || '';
+        if (/iPhone|iPad|iPod/i.test(ua)) {
+            return 'ios';
+        }
+        if (/Android/i.test(ua)) {
+            return 'android';
+        }
+        return 'desktop';
+    }
+
+    function showQr() {
+        if (!payload || !qrWrap || !qrEl || typeof QRCode === 'undefined') {
+            return;
+        }
+
+        qrWrap.classList.add('is-visible');
         new QRCode(qrEl, {
             text: payload,
-            width: 220,
-            height: 220,
+            width: isMobile() ? 180 : 220,
+            height: isMobile() ? 180 : 220,
             correctLevel: QRCode.CorrectLevel.M
         });
+    }
+
+    function showPayloadFallback() {
+        if (!payload || !fallbackWrap || !fallbackBtn) {
+            return;
+        }
+
+        fallbackWrap.classList.add('is-visible');
+        fallbackBtn.addEventListener('click', function () {
+            window.location.href = payload;
+        });
+    }
+
+    function renderBanks(members) {
+        if (!banksWrap || !banksList || !members || !members.length) {
+            showPayloadFallback();
+            return;
+        }
+
+        banksWrap.classList.add('is-visible');
+        members.forEach(function (member) {
+            if (!member || !member.url) {
+                return;
+            }
+
+            var link = document.createElement('a');
+            link.className = 'as-sbp-pay__bank';
+            link.href = member.url;
+            link.rel = 'noopener noreferrer';
+
+            if (member.logo) {
+                var logo = document.createElement('img');
+                logo.className = 'as-sbp-pay__bank-logo';
+                logo.src = member.logo;
+                logo.alt = member.name || '';
+                link.appendChild(logo);
+            }
+
+            var name = document.createElement('span');
+            name.textContent = member.name || '';
+            link.appendChild(name);
+            banksList.appendChild(link);
+        });
+    }
+
+    function loadBanks() {
+        if (!config.membersUrl || !payload) {
+            showPayloadFallback();
+            return;
+        }
+
+        var url = config.membersUrl + (config.membersUrl.indexOf('?') >= 0 ? '&' : '?') + 'platform=' + encodeURIComponent(detectPlatform());
+
+        fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(function (response) {
+                return response.ok ? response.json() : null;
+            })
+            .then(function (data) {
+                renderBanks(data && data.members ? data.members : []);
+            })
+            .catch(function () {
+                showPayloadFallback();
+            });
     }
 
     function stopPolling() {
@@ -48,20 +138,6 @@
         }
     }
 
-    function parseJsonResponse(response) {
-        return response.text().then(function (text) {
-            if (!text) {
-                return null;
-            }
-
-            try {
-                return JSON.parse(text);
-            } catch (error) {
-                return null;
-            }
-        });
-    }
-
     function requestStatus(url) {
         return fetch(url, {
             method: 'GET',
@@ -75,7 +151,13 @@
             if (!response.ok) {
                 return null;
             }
-            return parseJsonResponse(response);
+            return response.text().then(function (text) {
+                try {
+                    return text ? JSON.parse(text) : null;
+                } catch (error) {
+                    return null;
+                }
+            });
         });
     }
 
@@ -109,10 +191,7 @@
         }
 
         requestStatus(config.statusUrl).then(function (data) {
-            if (!data) {
-                return;
-            }
-            if (data.paid) {
+            if (data && data.paid) {
                 handlePaid(data.redirect);
             }
         });
@@ -132,5 +211,9 @@
         pollTimer = setInterval(pollStatus, pollIntervalMs);
     }
 
+    if (isMobile()) {
+        loadBanks();
+    }
+    showQr();
     startPolling();
 })();
