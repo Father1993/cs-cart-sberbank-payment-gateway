@@ -506,6 +506,57 @@ function fn_as_sberpay_api_save_fiscal_snapshot($order_id, array $order_info, ar
 }
 
 /**
+ * Абсолютный http(s) URL чека ОФД (без percent-encoding всей строки).
+ */
+function fn_as_sberpay_api_normalize_ofd_receipt_url($url)
+{
+    $url = trim((string) $url);
+    if ($url === '') {
+        return '';
+    }
+
+    for ($i = 0; $i < 3; $i++) {
+        if (preg_match('#^https?://#i', $url)) {
+            break;
+        }
+        $decoded = rawurldecode($url);
+        if ($decoded === $url) {
+            return '';
+        }
+        $url = $decoded;
+    }
+
+    if (!preg_match('#^https?://#i', $url)) {
+        return '';
+    }
+
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    if (!in_array($scheme, ['http', 'https'], true) || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return '';
+    }
+
+    return $url;
+}
+
+/**
+ * @param array<string, mixed> $meta
+ */
+function fn_as_sberpay_api_sanitize_receipt_urls_in_meta(array &$meta)
+{
+    foreach (['prepayment_receipt', 'closing_receipt', 'refund_receipt'] as $key) {
+        if (empty($meta[$key]['receipt_url'])) {
+            continue;
+        }
+        $url = fn_as_sberpay_api_normalize_ofd_receipt_url($meta[$key]['receipt_url']);
+        if ($url !== '') {
+            $meta[$key]['receipt_url'] = $url;
+        } else {
+            unset($meta[$key]['receipt_url']);
+        }
+    }
+}
+
+/**
  * Извлекает receipt_url и receipt_id из элемента receipts[] ответа getReceiptStatus.
  *
  * Prod OFD v1: receipts[].payload.ofdReceiptUrl; fallback — корень чека и legacy ofd_receipt_url.
@@ -527,9 +578,9 @@ function fn_as_sberpay_api_extract_receipt_url_fields(array $receipt)
             continue;
         }
 
-        $scheme = strtolower((string) parse_url($candidate, PHP_URL_SCHEME));
-        if (in_array($scheme, ['http', 'https'], true) && filter_var($candidate, FILTER_VALIDATE_URL)) {
-            $fields['receipt_url'] = $candidate;
+        $normalized = fn_as_sberpay_api_normalize_ofd_receipt_url($candidate);
+        if ($normalized !== '') {
+            $fields['receipt_url'] = $normalized;
             break;
         }
     }
@@ -813,8 +864,13 @@ function fn_as_sberpay_api_get_payment_meta($order_id)
     }
 
     $decoded = json_decode($meta, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
 
-    return is_array($decoded) ? $decoded : [];
+    fn_as_sberpay_api_sanitize_receipt_urls_in_meta($decoded);
+
+    return $decoded;
 }
 
 /**
@@ -839,7 +895,9 @@ function fn_as_sberpay_api_get_payment_meta_map(array $order_ids)
         $rows[$order_id] = json_decode($row['meta'], true);
         if (!is_array($rows[$order_id])) {
             unset($rows[$order_id]);
+            continue;
         }
+        fn_as_sberpay_api_sanitize_receipt_urls_in_meta($rows[$order_id]);
     }
 
     return $rows;
@@ -1076,13 +1134,8 @@ function fn_as_sberpay_api_build_ofd_receipt_links(array $meta)
 
     foreach ($map as $type => $cfg) {
         $block = !empty($meta[$cfg['key']]) && is_array($meta[$cfg['key']]) ? $meta[$cfg['key']] : [];
-        $url = trim((string) ($block['receipt_url'] ?? ''));
+        $url = fn_as_sberpay_api_normalize_ofd_receipt_url($block['receipt_url'] ?? '');
         if ($url === '') {
-            continue;
-        }
-
-        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
-        if (!in_array($scheme, ['http', 'https'], true) || !filter_var($url, FILTER_VALIDATE_URL)) {
             continue;
         }
 
