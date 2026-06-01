@@ -350,67 +350,87 @@ class AsSberPayApi
             'update_source' => $update_source,
         ];
 
-        $prepayment_ofd_status = $this->getPrepaymentSellReceiptStatus($ofd_response);
-        if ($prepayment_ofd_status !== null) {
-            $prepayment_status = $this->normalizeReceiptStatus($prepayment_ofd_status);
-            if ($order_id > 0) {
-                fn_as_sberpay_api_save_prepayment_receipt_meta($order_id, [
-                    'status' => $prepayment_status,
-                    'gateway_order_id' => $gateway_order_id,
-                    'source' => 'ofd_getReceiptStatus',
-                    'update_source' => (string) $update_source,
-                    'ofd_receipt_status' => $prepayment_ofd_status,
-                    'updated_at' => TIME,
-                ]);
-            }
+        $sell_receipts = $this->collectSellReceipts($ofd_response);
+        if ($sell_receipts) {
+            $prepayment_receipt = $this->pickReceiptFromSellList([$sell_receipts[0]]);
+            if ($prepayment_receipt !== null) {
+                $prepayment_ofd_status = (int) ($prepayment_receipt['receiptStatus'] ?? -1);
+                $prepayment_status = $this->normalizeReceiptStatus($prepayment_ofd_status);
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_prepayment_receipt_meta($order_id, array_merge(
+                        fn_as_sberpay_api_extract_receipt_url_fields($prepayment_receipt),
+                        [
+                            'status' => $prepayment_status,
+                            'gateway_order_id' => $gateway_order_id,
+                            'source' => 'ofd_getReceiptStatus',
+                            'update_source' => (string) $update_source,
+                            'ofd_receipt_status' => $prepayment_ofd_status,
+                            'updated_at' => TIME,
+                        ]
+                    ));
+                }
 
-            $result['prepayment_found'] = true;
-            $result['prepayment_status'] = $prepayment_status;
-            $result['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
-            $log_data['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
-            $log_data['prepayment_status'] = $prepayment_status;
+                $result['prepayment_found'] = true;
+                $result['prepayment_status'] = $prepayment_status;
+                $result['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
+                $log_data['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
+                $log_data['prepayment_status'] = $prepayment_status;
+            }
         }
 
-        $ofd_receipt_status = $this->getClosingSellReceiptStatus($ofd_response);
-        if ($ofd_receipt_status !== null) {
-            $status = $this->normalizeReceiptStatus($ofd_receipt_status);
-            if ($order_id > 0) {
-                fn_as_sberpay_api_save_closing_receipt_meta($order_id, [
-                    'status' => $status,
-                    'gateway_order_id' => $gateway_order_id,
-                    'source' => 'ofd_getReceiptStatus',
-                    'update_source' => (string) $update_source,
-                    'ofd_receipt_status' => $ofd_receipt_status,
-                    'updated_at' => TIME,
-                ]);
-            }
+        if (count($sell_receipts) >= 2) {
+            $closing_receipt = $this->pickReceiptFromSellList(array_slice($sell_receipts, 1));
+            if ($closing_receipt !== null) {
+                $ofd_receipt_status = (int) ($closing_receipt['receiptStatus'] ?? -1);
+                $status = $this->normalizeReceiptStatus($ofd_receipt_status);
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_closing_receipt_meta($order_id, array_merge(
+                        fn_as_sberpay_api_extract_receipt_url_fields($closing_receipt),
+                        [
+                            'status' => $status,
+                            'gateway_order_id' => $gateway_order_id,
+                            'source' => 'ofd_getReceiptStatus',
+                            'update_source' => (string) $update_source,
+                            'ofd_receipt_status' => $ofd_receipt_status,
+                            'updated_at' => TIME,
+                        ]
+                    ));
+                }
 
-            $result['found'] = true;
-            $result['status'] = $status;
-            $result['ofd_receipt_status'] = $ofd_receipt_status;
-            $log_data['ofd_receipt_status'] = $ofd_receipt_status;
-            $log_data['status'] = $status;
+                $result['found'] = true;
+                $result['status'] = $status;
+                $result['ofd_receipt_status'] = $ofd_receipt_status;
+                $log_data['ofd_receipt_status'] = $ofd_receipt_status;
+                $log_data['status'] = $status;
+            }
         }
 
-        $refund_ofd_status = $this->getRefundReceiptStatus($ofd_response);
-        if ($refund_ofd_status !== null) {
-            $refund_status = $this->normalizeReceiptStatus($refund_ofd_status);
-            if ($order_id > 0) {
-                fn_as_sberpay_api_save_refund_receipt_meta($order_id, [
-                    'status' => $refund_status,
-                    'gateway_order_id' => $gateway_order_id,
-                    'source' => 'ofd_getReceiptStatus',
-                    'update_source' => (string) $update_source,
-                    'ofd_receipt_status' => $refund_ofd_status,
-                    'updated_at' => TIME,
-                ]);
-            }
+        $refund_receipts = $this->collectReceiptsByType($ofd_response, ['sell_refund']);
+        if ($refund_receipts) {
+            $refund_receipt = $this->pickReceiptFromSellList($refund_receipts);
+            if ($refund_receipt !== null) {
+                $refund_ofd_status = (int) ($refund_receipt['receiptStatus'] ?? -1);
+                $refund_status = $this->normalizeReceiptStatus($refund_ofd_status);
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_refund_receipt_meta($order_id, array_merge(
+                        fn_as_sberpay_api_extract_receipt_url_fields($refund_receipt),
+                        [
+                            'status' => $refund_status,
+                            'gateway_order_id' => $gateway_order_id,
+                            'source' => 'ofd_getReceiptStatus',
+                            'update_source' => (string) $update_source,
+                            'ofd_receipt_status' => $refund_ofd_status,
+                            'updated_at' => TIME,
+                        ]
+                    ));
+                }
 
-            $result['refund_found'] = true;
-            $result['refund_status'] = $refund_status;
-            $result['refund_ofd_receipt_status'] = $refund_ofd_status;
-            $log_data['refund_ofd_receipt_status'] = $refund_ofd_status;
-            $log_data['refund_status'] = $refund_status;
+                $result['refund_found'] = true;
+                $result['refund_status'] = $refund_status;
+                $result['refund_ofd_receipt_status'] = $refund_ofd_status;
+                $log_data['refund_ofd_receipt_status'] = $refund_ofd_status;
+                $log_data['refund_status'] = $refund_status;
+            }
         }
 
         $this->log($log_data, 'refreshClosingReceiptMeta');
@@ -660,6 +680,7 @@ class AsSberPayApi
 
         if ($is_success) {
             fn_as_sberpay_api_save_closing_receipt_snapshot((int) $order_id, $snapshot, $bundle, $gateway_order_id);
+            $this->refreshClosingReceiptMeta((int) $order_id, $gateway_order_id, 'doReceipt_success');
         }
 
         return $response;
@@ -937,31 +958,46 @@ class AsSberPayApi
 
     /**
      * @param array<int, array> $sell_receipts
-     * @return int|null
+     * @return array|null
      */
-    private function pickReceiptStatusFromSellList(array $sell_receipts)
+    private function pickReceiptFromSellList(array $sell_receipts)
     {
         foreach ($sell_receipts as $receipt) {
             if ((int) ($receipt['receiptStatus'] ?? -1) === 3) {
-                return 3;
+                return $receipt;
             }
         }
 
         foreach ($sell_receipts as $receipt) {
             $status = (int) ($receipt['receiptStatus'] ?? -1);
             if (in_array($status, [4, 5], true)) {
-                return $status;
+                return $receipt;
             }
         }
 
         foreach ($sell_receipts as $receipt) {
             $status = (int) ($receipt['receiptStatus'] ?? -1);
             if (in_array($status, [1, 2], true)) {
-                return $status;
+                return $receipt;
             }
         }
 
         return null;
+    }
+
+    /**
+     * @param array<int, array> $sell_receipts
+     * @return int|null
+     */
+    private function pickReceiptStatusFromSellList(array $sell_receipts)
+    {
+        $receipt = $this->pickReceiptFromSellList($sell_receipts);
+
+        if ($receipt === null) {
+            return null;
+        }
+
+        return (int) ($receipt['receiptStatus'] ?? -1);
     }
 
     /**
