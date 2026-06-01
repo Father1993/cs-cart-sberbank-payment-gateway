@@ -5,6 +5,8 @@
 .as-sbp-pay__card { background: #fff; border: 1px solid #e8eaed; border-radius: 16px; padding: 28px 24px 24px; box-shadow: 0 8px 32px rgba(15, 23, 42, .08); }
 .as-sbp-pay__head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
 .as-sbp-pay__logo { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 11px/1 Arial, sans-serif; flex-shrink: 0; letter-spacing: -.02em; }
+.as-sbp-pay__logo--image { background: #fff; padding: 4px; border: 1px solid #eef2f7; }
+.as-sbp-pay__logo-image { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 8px; }
 .as-sbp-pay__title { margin: 0; font: 600 20px/1.25 Arial, sans-serif; color: #111827; }
 .as-sbp-pay__subtitle { margin: 4px 0 0; font: 400 14px/1.4 Arial, sans-serif; color: #6b7280; }
 .as-sbp-pay__summary { display: flex; justify-content: space-between; gap: 16px; padding: 16px; margin-bottom: 20px; border-radius: 12px; background: #f8fafc; border: 1px solid #eef2f7; }
@@ -45,7 +47,13 @@
 <div class="as-sbp-pay" id="as_sberpay_sbp_root">
     <div class="as-sbp-pay__card">
         <div class="as-sbp-pay__head">
-            <div class="as-sbp-pay__logo" aria-hidden="true">СБП</div>
+            <div class="as-sbp-pay__logo{if $order_info.payment_method.image} as-sbp-pay__logo--image{/if}" aria-hidden="true">
+                {if $order_info.payment_method.image}
+                    {include file="common/image.tpl" obj_id=$order_info.payment_id images=$order_info.payment_method.image class="as-sbp-pay__logo-image" show_no_image=false}
+                {else}
+                    СБП
+                {/if}
+            </div>
             <div>
                 <h2 class="as-sbp-pay__title">{__("addons.as_sberpay_api.sbp_pay_title")}</h2>
                 <p class="as-sbp-pay__subtitle">{__("addons.as_sberpay_api.sbp_pay_subtitle")}</p>
