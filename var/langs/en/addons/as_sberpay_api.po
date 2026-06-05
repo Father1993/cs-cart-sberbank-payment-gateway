@@ -18,8 +18,8 @@ msgid "Login"
 msgstr "Login"
 
 msgctxt "Languages::addons.as_sberpay_api.login_hint"
-msgid "API login with -api suffix (e.g. P1234567890-api)"
-msgstr "API login with -api suffix (e.g. P1234567890-api)"
+msgid "API login with (e.g. P1234567890)"
+msgstr "API login with (e.g. P1234567890)"
 
 msgctxt "Languages::addons.as_sberpay_api.password"
 msgid "Password"
@@ -169,6 +169,18 @@ msgctxt "Languages::addons.as_sberpay_api.refund_already_done"
 msgid "This order has already been refunded"
 msgstr "This order has already been refunded"
 
+msgctxt "Languages::addons.as_sberpay_api.refund_missing_snapshot"
+msgid "Refund is unavailable because the fiscal snapshot for this order was not saved"
+msgstr "Refund is unavailable because the fiscal snapshot for this order was not saved"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_only_full_snapshot_supported"
+msgid "Only a full refund that exactly matches the current refundable amount can be sent from the site"
+msgstr "Only a full refund that exactly matches the current refundable amount can be sent from the site"
+
+msgctxt "Languages::addons.as_sberpay_api.refund_bundle_rebuild_required"
+msgid "This refund bundle must be rebuilt in 1C before sending it to Sber"
+msgstr "This refund bundle must be rebuilt in 1C before sending it to Sber"
+
 msgctxt "Languages::addons.as_sberpay_api.pm_partial_credit"
 msgid "Partial payment with credit"
 msgstr "Partial payment with credit"
@@ -284,3 +296,299 @@ msgstr "Advance"
 msgctxt "Languages::addons.as_sberpay_api.pm_full_payment"
 msgid "Full payment"
 msgstr "Full payment"
+
+msgctxt "SettingsSections::as_sberpay_api::general"
+msgid "General"
+msgstr "General"
+
+msgctxt "SettingsOptions::as_sberpay_api::show_ofd_receipt_links"
+msgid "Show links to fiscal receipts in OFD (admin order page and storefront order details)"
+msgstr "Show links to fiscal receipts in OFD (admin order page and storefront order details)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_links_title"
+msgid "Receipts in OFD"
+msgstr "Receipts in OFD"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_open_ofd"
+msgid "Open in OFD"
+msgstr "Open in OFD"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_title"
+msgid "Fiscal receipts"
+msgstr "Fiscal receipts"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_title"
+msgid "Prepayment receipt"
+msgstr "Prepayment receipt"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_registered"
+msgid "Registered at checkout"
+msgstr "registered at checkout"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_prepayment_source"
+msgid "Source: saved from register.do (fiscal snapshot at payment)"
+msgstr "Source: saved from register.do (fiscal snapshot at payment)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_closing_title"
+msgid "Closing receipt"
+msgstr "Closing receipt"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_refund_title"
+msgid "Refund receipt"
+msgstr "Refund receipt"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_last_check"
+msgid "Last status check"
+msgstr "Last status check"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_data_source"
+msgid "Data source"
+msgstr "Data source"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_help"
+msgid "Closing receipt status is stored locally and updated automatically when the order becomes Completed, after doReceipt, or when you click the refresh button (OFD getReceiptStatus)."
+msgstr "Closing receipt status is stored locally and updated automatically when the order becomes Completed, after doReceipt, or when you click the refresh button (OFD getReceiptStatus)."
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_admin_refresh"
+msgid "Manual request from admin (OFD getReceiptStatus)"
+msgstr "Manual request from admin (OFD getReceiptStatus)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_auto_completed"
+msgid "Automatic check when order status changed to Completed (OFD getReceiptStatus before doReceipt)"
+msgstr "Automatic check when order status changed to Completed (OFD getReceiptStatus before doReceipt)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_do_receipt"
+msgid "After sending closing receipt (doReceipt)"
+msgstr "After sending closing receipt (doReceipt)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_source_ofd_legacy"
+msgid "OFD getReceiptStatus (saved earlier)"
+msgstr "OFD getReceiptStatus (saved earlier, source not specified)"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_not_sent"
+msgid "Not sent"
+msgstr "Not sent"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_pending"
+msgid "Pending"
+msgstr "Pending"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_succeeded"
+msgid "Succeeded"
+msgstr "Succeeded"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_failed"
+msgid "Failed"
+msgstr "Failed"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_1"
+msgid "OFD status: receipt is being processed"
+msgstr "OFD status: receipt is being processed"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_2"
+msgid "OFD status: receipt is being sent"
+msgstr "OFD status: receipt is being sent"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_3"
+msgid "OFD status: receipt registered successfully"
+msgstr "OFD status: receipt registered successfully"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_4"
+msgid "OFD status: receipt processing error"
+msgstr "OFD status: receipt processing error"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_status_5"
+msgid "OFD status: receipt send attempts exhausted"
+msgstr "OFD status: receipt send attempts exhausted"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_refund_succeeded"
+msgid "Succeeded"
+msgstr "Succeeded"
+
+msgctxt "Languages::addons.as_sberpay_api.refresh_receipt_status"
+msgid "Request status from OFD"
+msgstr "Request status from OFD"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_updated"
+msgid "Closing receipt status updated: [status]"
+msgstr "Closing receipt status updated: [status]"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_failed"
+msgid "Failed to refresh receipt status"
+msgstr "Failed to refresh receipt status"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_closing_not_found"
+msgid "Closing receipt was not found in OFD yet"
+msgstr "Closing receipt was not found in OFD yet"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_refund_not_found"
+msgid "Refund receipt was not found in OFD yet"
+msgstr "Refund receipt was not found in OFD yet"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_na"
+msgid "N/A"
+msgstr "N/A"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_status_refresh_summary"
+msgid "Updated from OFD: prepayment — [prepayment]; closing — [closing]; refund — [refund]"
+msgstr "Updated from OFD: prepayment — [prepayment]; closing — [closing]; refund — [refund]"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_fiscal_disabled"
+msgid "Fiscal receipts are disabled for this payment method"
+msgstr "Fiscal receipts are disabled for this payment method"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode"
+msgid "Checkout mode"
+msgstr "Checkout mode"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hosted"
+msgid "Sber payment page (card redirect)"
+msgstr "Sber payment page (card redirect)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_sberpay_sdk"
+msgid "SberPay Web SDK (on-site widget)"
+msgstr "SberPay Web SDK (on-site widget)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_sbp_c2b"
+msgid "SBP C2B (QR and bank app)"
+msgstr "SBP C2B (QR and bank app)"
+
+msgctxt "Languages::addons.as_sberpay_api.checkout_mode_hint"
+msgid "Use hosted for the existing card flow. Create a second payment method with SberPay SDK to offer both options on checkout."
+msgstr "Use hosted for card redirect. For SberPay SDK or SBP C2B, create a separate payment method with the matching checkout mode."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_title"
+msgid "Pay with SberPay"
+msgstr "Pay with SberPay"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_subtitle"
+msgid "Secure payment on [host]"
+msgstr "Secure payment on [host]"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_order"
+msgid "Order"
+msgstr "Order"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_amount"
+msgid "Amount due"
+msgstr "Amount due"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_recipient"
+msgid "Recipient: [host]"
+msgstr "Recipient: [host]"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_loading"
+msgid "Opening SberPay..."
+msgstr "Opening SberPay..."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_loading_hint"
+msgid "This usually takes up to 5 seconds."
+msgstr "This usually takes up to 5 seconds."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_fallback"
+msgid "The payment form did not open automatically. Your browser may have blocked a popup."
+msgstr "The payment form did not open automatically. Your browser may have blocked a popup."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_cancelled"
+msgid "You cancelled the payment. You can try again."
+msgstr "You cancelled the payment. You can try again."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_onsite"
+msgid "Card data is not stored on [host]"
+msgstr "Card data is not stored on [host]"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_benefit_secure"
+msgid "Payment protected by Sber"
+msgstr "Payment protected by Sber"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry"
+msgid "Pay [amount]"
+msgstr "Pay [amount]"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry_opening"
+msgid "Opening..."
+msgstr "Opening..."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_retry_manual"
+msgid "Open payment manually"
+msgstr "Open payment manually"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_cancel"
+msgid "Cancel payment"
+msgstr "Cancel payment"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_back"
+msgid "Return to order"
+msgstr "← Return to order"
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_pay_note"
+msgid "If the form did not open, click the payment button again."
+msgstr "If the form did not open, click the payment button again."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_return_cancel"
+msgid "Payment was cancelled. You can pay for the order again on the order details page."
+msgstr "Payment was cancelled. You can pay for the order again on the order details page."
+
+msgctxt "Languages::addons.as_sberpay_api.sdk_return_failed"
+msgid "Payment was not completed. You can try again on the order details page."
+msgstr "Payment was not completed. You can try again on the order details page."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_title"
+msgid "SBP payment"
+msgstr "SBP payment"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_subtitle"
+msgid "Pay via Faster Payments System"
+msgstr "Pay via Faster Payments System"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_scan_hint"
+msgid "Scan the QR code in your bank app"
+msgstr "Scan the QR code in your bank app"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_open"
+msgid "Open payment"
+msgstr "Open payment"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_choose_bank"
+msgid "Choose your bank to pay via SBP"
+msgstr "Choose your bank to pay via SBP"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_note"
+msgid "After payment, return to this page or wait for automatic redirect. Status is updated via bank notification."
+msgstr "After payment, return to this page or wait for automatic redirect. Status is updated via bank notification."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_waiting"
+msgid "Waiting for payment confirmation…"
+msgstr "Waiting for payment confirmation…"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_paid_redirect"
+msgid "Payment confirmed. Redirecting…"
+msgstr "Payment confirmed. Redirecting…"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_expired"
+msgid "Payment time expired. You can pay for the order again on the order details page."
+msgstr "Payment time expired. You can pay for the order again on the order details page."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_expired_redirect"
+msgid "Payment time expired. Redirecting…"
+msgstr "Payment time expired. Redirecting…"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_pay_desktop_note"
+msgid "Scan the QR code in your bank app. This page will redirect automatically after payment."
+msgstr "Scan the QR code in your bank app. This page will redirect automatically after payment."
+
+msgctxt "Languages::sbp_payload"
+msgid "SBP payment link"
+msgstr "SBP payment link"
+
+msgctxt "Languages::qrc_id"
+msgid "SBP QR code ID"
+msgstr "SBP QR code ID"
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_return_cancel"
+msgid "SBP payment was cancelled. You can pay for the order again on the order details page."
+msgstr "SBP payment was cancelled. You can pay for the order again on the order details page."
+
+msgctxt "Languages::addons.as_sberpay_api.sbp_return_failed"
+msgid "SBP payment was not completed. You can try again on the order details page."
+msgstr "SBP payment was not completed. You can try again on the order details page."

@@ -132,6 +132,11 @@ class AsSberPayApi
     private $two_staging;
 
     /**
+     * @var string Режим checkout: hosted | sberpay_sdk | sbp_c2b
+     */
+    private $checkout_mode;
+
+    /**
      * @var array Данные компании для чека (company)
      */
     private $company = [];
@@ -145,6 +150,11 @@ class AsSberPayApi
      * @var string Текст последней ошибки
      */
     private $error_text = '';
+
+    /**
+     * @var array Контекст последней успешной/последней попытки register.do.
+     */
+    private $last_register_context = [];
 
     /**
      * @param array $processor_data Данные процессора из БД
@@ -174,6 +184,8 @@ class AsSberPayApi
 
         $this->confirmed_status = !empty($p['confirmed_order_status']) ? $p['confirmed_order_status'] : 'P';
         $this->two_staging = !empty($p['two_staging']) && $p['two_staging'] == '1';
+        $mode = $p['checkout_mode'] ?? 'hosted';
+        $this->checkout_mode = in_array($mode, ['sberpay_sdk', 'sbp_c2b'], true) ? $mode : 'hosted';
 
         $this->company = [
             'email' => isset($p['company_email']) ? (string) $p['company_email'] : '',
@@ -201,7 +213,6 @@ class AsSberPayApi
         $amount = $this->formatAmount($order_info['total']);
         $bundle = null;
 
-        // При фискализации (orderBundle) — минимальный набор полей как в эталоне документации.
         if ($this->send_order) {
             $bundle = $this->buildOrderBundle($order_info);
             if (!$bundle) {
@@ -209,38 +220,51 @@ class AsSberPayApi
             }
         }
 
-        if ($this->send_order && !empty($bundle)) {
-            $args = [
-                'userName' => $this->login,
-                'password' => $this->password,
-                'orderNumber' => $order_number,
-                'amount' => $amount,
-                'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
-                'email' => !empty($order_info['email']) ? $order_info['email'] : '',
-                'orderBundle' => $bundle,
-            ];
-        } else {
-            $args = [
-                'userName' => $this->login,
-                'password' => $this->password,
-                'orderNumber' => $order_number,
-                'amount' => $amount,
-                'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
-                'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
-                'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
-            ];
-            if (!empty($order_info['phone'])) {
-                $args['phone'] = $this->cleanPhone($order_info['phone']);
-            }
-            if (!empty($order_info['email'])) {
-                $args['email'] = $order_info['email'];
-            }
-            if (!empty($order_info['user_id'])) {
-                $email = !empty($order_info['email']) ? $order_info['email'] : '';
-                $site = parse_url(fn_url(''), PHP_URL_HOST);
-                $args['clientId'] = md5($order_info['user_id'] . $email . $site);
-            }
+        if ($protocol === 'current') {
+            $protocol = 'https';
         }
+
+        $args = [
+            'userName' => $this->login,
+            'password' => $this->password,
+            'orderNumber' => $order_number,
+            'amount' => $amount,
+            'returnUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&action=return&ordernumber={$order_id}", AREA, $protocol),
+            'failUrl' => fn_url("payment_notification.error?payment=as_sberpay_api&ordernumber={$order_id}", AREA, $protocol),
+            'dynamicCallbackUrl' => fn_url("payment_notification.return?payment=as_sberpay_api&payment_id={$order_info['payment_id']}&action=callback", AREA, $protocol),
+        ];
+
+        if (!empty($order_info['phone'])) {
+            $args['phone'] = $this->cleanPhone($order_info['phone']);
+        }
+        if (!empty($order_info['email'])) {
+            $args['email'] = $order_info['email'];
+        }
+        if (!empty($order_info['user_id'])) {
+            $email = !empty($order_info['email']) ? $order_info['email'] : '';
+            $site = parse_url(fn_url(''), PHP_URL_HOST);
+            $args['clientId'] = md5($order_info['user_id'] . $email . $site);
+        }
+        if ($this->send_order && !empty($bundle)) {
+            $args['orderBundle'] = $bundle;
+        }
+
+        if ($this->isSberPaySdk()) {
+            $args['jsonParams'] = [
+                'sberpay.backurl' => $this->getSdkBackUrl((int) $order_id, $protocol),
+                'sberbankOnlineAttributes' => json_encode(['language' => 'ru']),
+            ];
+        } elseif ($this->isSbpC2b()) {
+            $args['jsonParams'] = $this->buildSbpJsonParams($order_info);
+        }
+
+        $this->last_register_context = [
+            'order_id' => (int) $order_id,
+            'order_number' => (string) $order_number,
+            'amount' => (int) $amount,
+            'order_bundle' => is_array($bundle) ? $bundle : [],
+            'uses_order_bundle' => $this->send_order && !empty($bundle),
+        ];
 
         $endpoint = $this->two_staging ? 'registerPreAuth.do' : 'register.do';
         $response = $this->request($endpoint, $args);
@@ -304,6 +328,135 @@ class AsSberPayApi
     }
 
     /**
+     * Запрашивает OFD getReceiptStatus и сохраняет meta предоплаты, закрывающего и возвратного чека.
+     *
+     * @return array{ok: bool, found?: bool, status?: string, ofd_receipt_status?: int, prepayment_found?: bool, prepayment_status?: string, refund_found?: bool, refund_status?: string, message?: string}
+     */
+    public function refreshClosingReceiptMeta(int $order_id, string $gateway_order_id, $update_source = 'ofd_poll_doreceipt')
+    {
+        if ($gateway_order_id === '') {
+            return ['ok' => false, 'message' => 'Missing gateway order id'];
+        }
+
+        $ofd_response = $this->getReceiptStatus($gateway_order_id);
+        if ($this->isError()) {
+            return ['ok' => false, 'message' => $this->getErrorText()];
+        }
+
+        $result = ['ok' => true, 'found' => false];
+        $log_data = [
+            'order_id' => $order_id,
+            'gateway_order_id' => $gateway_order_id,
+            'update_source' => $update_source,
+        ];
+
+        $sell_receipts = $this->collectSellReceipts($ofd_response);
+        if ($sell_receipts) {
+            $prepayment_receipt = $this->pickReceiptFromSellList([$sell_receipts[0]]);
+            if ($prepayment_receipt !== null) {
+                $prepayment_ofd_status = (int) ($prepayment_receipt['receiptStatus'] ?? -1);
+                $prepayment_status = $this->normalizeReceiptStatus($prepayment_ofd_status);
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_prepayment_receipt_meta($order_id, array_merge(
+                        fn_as_sberpay_api_extract_receipt_url_fields($prepayment_receipt),
+                        [
+                            'status' => $prepayment_status,
+                            'gateway_order_id' => $gateway_order_id,
+                            'source' => 'ofd_getReceiptStatus',
+                            'update_source' => (string) $update_source,
+                            'ofd_receipt_status' => $prepayment_ofd_status,
+                            'updated_at' => TIME,
+                        ]
+                    ));
+                }
+
+                $result['prepayment_found'] = true;
+                $result['prepayment_status'] = $prepayment_status;
+                $result['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
+                $log_data['prepayment_ofd_receipt_status'] = $prepayment_ofd_status;
+                $log_data['prepayment_status'] = $prepayment_status;
+            }
+        }
+
+        if (count($sell_receipts) >= 2) {
+            $closing_receipt = $this->pickReceiptFromSellList(array_slice($sell_receipts, 1));
+            if ($closing_receipt !== null) {
+                $ofd_receipt_status = (int) ($closing_receipt['receiptStatus'] ?? -1);
+                $status = $this->normalizeReceiptStatus($ofd_receipt_status);
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_closing_receipt_meta($order_id, array_merge(
+                        fn_as_sberpay_api_extract_receipt_url_fields($closing_receipt),
+                        [
+                            'status' => $status,
+                            'gateway_order_id' => $gateway_order_id,
+                            'source' => 'ofd_getReceiptStatus',
+                            'update_source' => (string) $update_source,
+                            'ofd_receipt_status' => $ofd_receipt_status,
+                            'updated_at' => TIME,
+                        ]
+                    ));
+                }
+
+                $result['found'] = true;
+                $result['status'] = $status;
+                $result['ofd_receipt_status'] = $ofd_receipt_status;
+                $log_data['ofd_receipt_status'] = $ofd_receipt_status;
+                $log_data['status'] = $status;
+            }
+        }
+
+        $refund_receipts = $this->collectReceiptsByType($ofd_response, ['sell_refund']);
+        if ($refund_receipts) {
+            $refund_receipt = $this->pickReceiptFromSellList($refund_receipts);
+            if ($refund_receipt !== null) {
+                $refund_ofd_status = (int) ($refund_receipt['receiptStatus'] ?? -1);
+                $refund_status = $this->normalizeReceiptStatus($refund_ofd_status);
+                if ($order_id > 0) {
+                    fn_as_sberpay_api_save_refund_receipt_meta($order_id, array_merge(
+                        fn_as_sberpay_api_extract_receipt_url_fields($refund_receipt),
+                        [
+                            'status' => $refund_status,
+                            'gateway_order_id' => $gateway_order_id,
+                            'source' => 'ofd_getReceiptStatus',
+                            'update_source' => (string) $update_source,
+                            'ofd_receipt_status' => $refund_ofd_status,
+                            'updated_at' => TIME,
+                        ]
+                    ));
+                }
+
+                $result['refund_found'] = true;
+                $result['refund_status'] = $refund_status;
+                $result['refund_ofd_receipt_status'] = $refund_ofd_status;
+                $log_data['refund_ofd_receipt_status'] = $refund_ofd_status;
+                $log_data['refund_status'] = $refund_status;
+            }
+        }
+
+        $this->log($log_data, 'refreshClosingReceiptMeta');
+
+        return $result;
+    }
+
+    /**
+     * @param int $ofd_receipt_status receiptStatus из OFD (1–5)
+     */
+    public function normalizeReceiptStatus($ofd_receipt_status)
+    {
+        $ofd_receipt_status = (int) $ofd_receipt_status;
+
+        if ($ofd_receipt_status === 3) {
+            return 'succeeded';
+        }
+
+        if (in_array($ofd_receipt_status, [4, 5], true)) {
+            return 'failed';
+        }
+
+        return 'pending';
+    }
+
+    /**
      * Возврат средств (refund.do).
      *
      * @param string $gateway_order_id ID заказа в Сбере
@@ -322,7 +475,7 @@ class AsSberPayApi
      * @param string $external_refund_id  Идемпотентный ключ возврата
      * @return array Ответ API
      */
-    public function refundOrder(array $order_info, $external_refund_id = '')
+    public function refundOrder(array $order_info, $external_refund_id = '', array $payment_meta = [])
     {
         $order_id = (int) ($order_info['order_id'] ?? 0);
         $gateway_order_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
@@ -349,10 +502,20 @@ class AsSberPayApi
         }
 
         if ($this->send_order) {
-            $bundle = $this->buildOrderBundle($order_info, $this->payment_method, 'SELL_REFUND');
-            if (!empty($bundle)) {
-                $args['orderBundle'] = $bundle;
+            $bundle = $this->buildSafeFullRefundBundle($order_info, $amount, $payment_meta);
+            if (empty($bundle)) {
+                $this->log([
+                    'order_id' => $order_id,
+                    'gateway_order_id' => $gateway_order_id,
+                    'amount' => $amount,
+                    'error_code' => $this->error_code,
+                    'error_text' => $this->error_text,
+                ], 'refundOrder: skipped unsafe snapshot bundle');
+
+                return [];
             }
+
+            $args['orderBundle'] = $bundle;
         }
 
         $response = $this->request('refund.do', $args);
@@ -394,7 +557,7 @@ class AsSberPayApi
      * @param array $order_info Заказ CS-Cart
      * @return array Ответ API
      */
-    public function doReceipt($order_info)
+    public function doReceipt($order_info, array $payment_meta = [])
     {
         $order_id = $order_info['order_id'] ?? 0;
 
@@ -415,7 +578,61 @@ class AsSberPayApi
             return [];
         }
 
-        $bundle = $this->buildOrderBundle($order_info, self::PM_FULL_PAYMENT);
+        if (!$payment_meta && $order_id > 0) {
+            $payment_meta = fn_as_sberpay_api_get_payment_meta((int) $order_id);
+        }
+
+        if (!empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded') {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped already succeeded');
+            return [];
+        }
+
+        $sync = $this->refreshClosingReceiptMeta((int) $order_id, (string) $gateway_order_id, 'ofd_poll_doreceipt');
+        if (!empty($sync['ok']) && !empty($sync['found'])
+            && in_array($sync['status'] ?? '', ['succeeded', 'pending'], true)
+        ) {
+            $this->log([
+                'order_id' => $order_id,
+                'closing_receipt_status' => $sync['ofd_receipt_status'] ?? null,
+            ], 'doReceipt: skipped closing receipt exists in OFD');
+
+            return [];
+        }
+
+        $snapshot = !empty($payment_meta['fiscal_snapshot']) && is_array($payment_meta['fiscal_snapshot'])
+            ? $payment_meta['fiscal_snapshot']
+            : [];
+        if (!$snapshot) {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped missing fiscal snapshot');
+            return [];
+        }
+
+        $status_response = $this->getOrderStatusExtended($gateway_order_id);
+        if ($this->isError()) {
+            $this->log([
+                'order_id' => $order_id,
+                'gateway_order_id' => $gateway_order_id,
+                'error_code' => $this->error_code,
+                'error_text' => $this->error_text,
+            ], 'doReceipt: skipped status check error');
+
+            return [];
+        }
+
+        fn_as_sberpay_api_save_payment_meta((int) $order_id, $status_response, $gateway_order_id);
+
+        $gateway_status = isset($status_response['orderStatus']) ? (int) $status_response['orderStatus'] : -1;
+        if (!in_array($gateway_status, [1, 2], true)) {
+            $this->log([
+                'order_id' => $order_id,
+                'gateway_order_id' => $gateway_order_id,
+                'order_status' => $gateway_status,
+            ], 'doReceipt: skipped unpaid order');
+
+            return [];
+        }
+
+        $bundle = $this->buildOrderBundleFromSnapshot($snapshot, self::PM_FULL_PAYMENT, 'SELL', 2);
         if (!$bundle) {
             $this->log(['order_id' => $order_id], 'doReceipt: skipped empty bundle');
             return [];
@@ -440,6 +657,31 @@ class AsSberPayApi
         $ofd_base_url = $this->test_mode ? self::TEST_OFD_URL : self::PROD_OFD_URL;
         $response = $this->request('doReceipt', $args, $ofd_base_url);
         $this->log(['order_id' => $order_id, 'response' => $response], 'doReceipt');
+
+        $is_success = !$this->isError()
+            && (
+                (isset($response['errorCode']) && (string) $response['errorCode'] === '0')
+                || (
+                    !empty($response['orderId'])
+                    && !empty($response['orderNumber'])
+                    && !empty($response['message'])
+                )
+            );
+
+        fn_as_sberpay_api_save_closing_receipt_meta((int) $order_id, [
+            'status' => $is_success ? 'succeeded' : 'failed',
+            'gateway_order_id' => $gateway_order_id,
+            'source' => 'doReceipt',
+            'update_source' => 'doReceipt',
+            'error_code' => (string) ($response['errorCode'] ?? $this->error_code),
+            'error_message' => (string) ($response['errorMessage'] ?? $this->error_text),
+            'updated_at' => TIME,
+        ]);
+
+        if ($is_success) {
+            fn_as_sberpay_api_save_closing_receipt_snapshot((int) $order_id, $snapshot, $bundle, $gateway_order_id);
+            $this->refreshClosingReceiptMeta((int) $order_id, $gateway_order_id, 'doReceipt_success');
+        }
 
         return $response;
     }
@@ -480,9 +722,122 @@ class AsSberPayApi
         return $this->confirmed_status;
     }
 
+    public function getLastRegisterContext()
+    {
+        return $this->last_register_context;
+    }
+
     public function isLogging()
     {
         return $this->logging;
+    }
+
+    public function isSberPaySdk()
+    {
+        return $this->checkout_mode === 'sberpay_sdk';
+    }
+
+    public function isSbpC2b()
+    {
+        return $this->checkout_mode === 'sbp_c2b';
+    }
+
+    /**
+     * @param array $order_info
+     * @return array<string, string>
+     */
+    public function buildSbpJsonParams($order_info)
+    {
+        $order_id = (int) ($order_info['order_id'] ?? 0);
+
+        return [
+            'qrType' => 'DYNAMIC_QR_SBP',
+            'sbp.scenario' => 'C2B',
+            'description' => 'Заказ #' . $order_id,
+        ];
+    }
+
+    /**
+     * @param array $response
+     * @return array{sbp_payload: string, qrc_id: string}
+     */
+    public function extractRegisterExternalParams(array $response)
+    {
+        $ext = !empty($response['externalParams']) && is_array($response['externalParams'])
+            ? $response['externalParams']
+            : [];
+
+        return [
+            'sbp_payload' => (string) ($ext['sbpPayload'] ?? $ext['sbp_payload'] ?? ''),
+            'qrc_id' => (string) ($ext['qrcId'] ?? $ext['qrc_id'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param array $response
+     */
+    public function isRegisterSuccessForMode(array $response)
+    {
+        if ($this->isError() || empty($response['orderId'])) {
+            return false;
+        }
+
+        if ($this->isSbpC2b()) {
+            return $this->extractRegisterExternalParams($response)['sbp_payload'] !== '';
+        }
+
+        return !empty($response['formUrl']);
+    }
+
+    /**
+     * @param int    $order_id
+     * @param string $protocol
+     */
+    public function getSdkBackUrl($order_id, $protocol = 'https')
+    {
+        if ($protocol === 'current') {
+            $protocol = 'https';
+        }
+
+        return fn_url(
+            'payment_notification.return?payment=as_sberpay_api&action=return&ordernumber=' . (int) $order_id,
+            AREA,
+            $protocol
+        );
+    }
+
+    public function getWidgetEnvironment()
+    {
+        return $this->test_mode ? 'IFT' : 'PRODUCTION';
+    }
+
+    /**
+     * @param string|null $phone
+     * @return string|null
+     */
+    public function formatSdkPhone($phone)
+    {
+        if ($phone === null || $phone === '') {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if (strlen($digits) === 11 && $digits[0] === '8') {
+            $digits = '7' . substr($digits, 1);
+        }
+        if (strlen($digits) === 10) {
+            $digits = '7' . $digits;
+        }
+        if (strlen($digits) !== 11 || $digits[0] !== '7') {
+            return null;
+        }
+
+        return '+7' . substr($digits, 1);
+    }
+
+    public function usesOrderBundle()
+    {
+        return $this->send_order;
     }
 
     // =========================================================================
@@ -517,6 +872,135 @@ class AsSberPayApi
     // =========================================================================
 
     /**
+     * Итоговый статус первого sell-чека (предоплата) в OFD или null.
+     *
+     * @param array $response Ответ getReceiptStatus
+     * @return int|null receiptStatus (1–5) или null
+     */
+    private function getPrepaymentSellReceiptStatus(array $response)
+    {
+        $sell_receipts = $this->collectSellReceipts($response);
+
+        if (!$sell_receipts) {
+            return null;
+        }
+
+        return $this->pickReceiptStatusFromSellList([$sell_receipts[0]]);
+    }
+
+    /**
+     * Итоговый статус закрывающего sell-чека в OFD или null, если doReceipt нужен.
+     *
+     * @param array $response Ответ getReceiptStatus
+     * @return int|null receiptStatus (1–5) или null
+     */
+    private function getClosingSellReceiptStatus(array $response)
+    {
+        $sell_receipts = $this->collectSellReceipts($response);
+
+        if (count($sell_receipts) < 2) {
+            return null;
+        }
+
+        return $this->pickReceiptStatusFromSellList(array_slice($sell_receipts, 1));
+    }
+
+    /**
+     * Итоговый статус чека возврата (sell_refund) в OFD или null.
+     *
+     * @param array $response Ответ getReceiptStatus
+     * @return int|null receiptStatus (1–5) или null
+     */
+    private function getRefundReceiptStatus(array $response)
+    {
+        $refund_receipts = $this->collectReceiptsByType($response, ['sell_refund']);
+
+        if (!$refund_receipts) {
+            return null;
+        }
+
+        return $this->pickReceiptStatusFromSellList($refund_receipts);
+    }
+
+    /**
+     * @param array $response Ответ getReceiptStatus
+     * @return array<int, array>
+     */
+    private function collectSellReceipts(array $response)
+    {
+        return $this->collectReceiptsByType($response, ['sell']);
+    }
+
+    /**
+     * @param array        $response Ответ getReceiptStatus
+     * @param array<int, string> $types receiptType (lowercase)
+     * @return array<int, array>
+     */
+    private function collectReceiptsByType(array $response, array $types)
+    {
+        $receipts = !empty($response['receipts']) && is_array($response['receipts']) ? $response['receipts'] : [];
+        $types = array_map('strtolower', $types);
+        $matched = [];
+
+        foreach ($receipts as $receipt) {
+            if (!is_array($receipt)) {
+                continue;
+            }
+
+            $receipt_type = strtolower((string) ($receipt['receiptType'] ?? ''));
+            if (in_array($receipt_type, $types, true)) {
+                $matched[] = $receipt;
+            }
+        }
+
+        return $matched;
+    }
+
+    /**
+     * @param array<int, array> $sell_receipts
+     * @return array|null
+     */
+    private function pickReceiptFromSellList(array $sell_receipts)
+    {
+        foreach ($sell_receipts as $receipt) {
+            if ((int) ($receipt['receiptStatus'] ?? -1) === 3) {
+                return $receipt;
+            }
+        }
+
+        foreach ($sell_receipts as $receipt) {
+            $status = (int) ($receipt['receiptStatus'] ?? -1);
+            if (in_array($status, [4, 5], true)) {
+                return $receipt;
+            }
+        }
+
+        foreach ($sell_receipts as $receipt) {
+            $status = (int) ($receipt['receiptStatus'] ?? -1);
+            if (in_array($status, [1, 2], true)) {
+                return $receipt;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, array> $sell_receipts
+     * @return int|null
+     */
+    private function pickReceiptStatusFromSellList(array $sell_receipts)
+    {
+        $receipt = $this->pickReceiptFromSellList($sell_receipts);
+
+        if ($receipt === null) {
+            return null;
+        }
+
+        return (int) ($receipt['receiptStatus'] ?? -1);
+    }
+
+    /**
      * HTTP POST запрос к API Сбера (application/json).
      *
      * @param string      $endpoint Метод API (register.do, doReceipt и т.д.)
@@ -533,8 +1017,8 @@ class AsSberPayApi
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 30,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => json_encode($data),
         ]);
@@ -588,12 +1072,66 @@ class AsSberPayApi
     }
 
     /**
+     * Возвращает snapshot-based orderBundle только для безопасного полного refund.
+     *
+     * Если сумма админского возврата не совпадает с текущим refundable остатком
+     * или snapshot не позволяет честно собрать bundle, refund с сайта блокируется.
+     */
+    private function buildSafeFullRefundBundle(array $order_info, $amount, array $payment_meta = [])
+    {
+        $order_id = (int) ($order_info['order_id'] ?? 0);
+
+        if (!$payment_meta && $order_id > 0) {
+            $payment_meta = fn_as_sberpay_api_get_payment_meta($order_id);
+        }
+
+        $active_snapshot = fn_as_sberpay_api_get_active_fiscal_snapshot($payment_meta);
+        if (!$active_snapshot) {
+            $this->error_code = 996;
+            $this->error_text = !empty($payment_meta['closing_receipt']['status']) && $payment_meta['closing_receipt']['status'] === 'succeeded'
+                ? 'Refund skipped: closing receipt snapshot is missing'
+                : 'Refund skipped: fiscal snapshot is missing';
+
+            return [];
+        }
+
+        $refund_context = fn_as_sberpay_api_build_refund_context($payment_meta);
+        if (!$refund_context) {
+            $this->error_code = 995;
+            $this->error_text = 'Refund skipped: refund context is unavailable';
+
+            return [];
+        }
+
+        $refundable_amount_minor = (int) ($refund_context['refundable_amount_minor'] ?? 0);
+        if ((int) $amount !== $refundable_amount_minor) {
+            $this->error_code = 994;
+            $this->error_text = 'Refund skipped: only safe full snapshot refund is supported';
+
+            return [];
+        }
+
+        $bundle = !empty($refund_context['refund_order_bundle']) && is_array($refund_context['refund_order_bundle'])
+            ? $refund_context['refund_order_bundle']
+            : [];
+
+        if (empty($refund_context['refund_order_bundle_ready']) || !$bundle) {
+            $this->error_code = 993;
+            $this->error_text = 'Refund skipped: snapshot refund bundle must be rebuilt outside the site';
+
+            return [];
+        }
+
+        return $bundle;
+    }
+
+    /**
      * Формирование orderBundle для 54-ФЗ по формату документации Сбера (ФФД 1.05).
      *
      * @param array $order_info Заказ CS-Cart
      * @return array|null
      */
-    private function buildOrderBundle($order_info, $payment_method = null, $receipt_type = 'SELL')
+    private function buildOrderBundle($order_info, $payment_method = null, $receipt_type = 'SELL', $payment_type = 1)
     {
         $pm = $payment_method ?? $this->payment_method;
         $total_kopecks = $this->formatAmount($order_info['total']);
@@ -684,13 +1222,68 @@ class AsSberPayApi
             ],
             'payments' => [
                 [
-                    'type' => 1,
+                    'type' => (int) $payment_type > 0 ? (int) $payment_type : 1,
                     'sum' => $total_kopecks,
                 ],
             ],
             'total' => $total_kopecks,
             'cartItems' => ['items' => $items],
         ];
+    }
+
+    /**
+     * Переиспользует snapshot первого чека для закрывающего чека полного расчёта.
+     */
+    private function buildOrderBundleFromSnapshot(array $snapshot, $payment_method = null, $receipt_type = 'SELL', $payment_type = 1)
+    {
+        $order_bundle = !empty($snapshot['order_bundle']) && is_array($snapshot['order_bundle'])
+            ? $snapshot['order_bundle']
+            : [];
+
+        if (!$order_bundle) {
+            return [];
+        }
+
+        $items = !empty($snapshot['items']) && is_array($snapshot['items'])
+            ? array_values($snapshot['items'])
+            : [];
+
+        if (!$items && !empty($order_bundle['cartItems']['items']) && is_array($order_bundle['cartItems']['items'])) {
+            $items = array_values($order_bundle['cartItems']['items']);
+        }
+
+        if (!$items) {
+            return [];
+        }
+
+        $pm = $payment_method ?? $this->payment_method;
+        foreach ($items as &$item) {
+            $item['paymentMethod'] = $pm;
+        }
+        unset($item);
+
+        $total_kopecks = isset($order_bundle['total'])
+            ? (int) $order_bundle['total']
+            : fn_as_sberpay_api_get_snapshot_items_total_minor([
+                'items' => $items,
+                'order_bundle' => $order_bundle,
+            ]);
+
+        $order_bundle['ffdVersion'] = !empty($order_bundle['ffdVersion'])
+            ? (string) $order_bundle['ffdVersion']
+            : (($this->ffd_version === 'v1_2') ? '1.2' : '1.05');
+        $order_bundle['receiptType'] = (string) $receipt_type;
+        $order_bundle['company'] = !empty($snapshot['company']) && is_array($snapshot['company'])
+            ? $snapshot['company']
+            : (!empty($order_bundle['company']) && is_array($order_bundle['company']) ? $order_bundle['company'] : []);
+        $order_bundle['payments'] = [[
+            'type' => (int) $payment_type > 0 ? (int) $payment_type : 1,
+            'sum' => $total_kopecks,
+        ]];
+        $order_bundle['total'] = $total_kopecks;
+        $order_bundle['cartItems'] = ['items' => $items];
+
+        return $order_bundle;
     }
 
     /**

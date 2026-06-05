@@ -2,6 +2,18 @@
 
 Модуль оплаты для **CS-Cart** и **CS-Cart Multi-Vendor**: интеграция с интернет-эквайрингом Сбербанка через **новый партнёрский REST API** (`application/json`). Поддерживаются регистрация заказа, серверный callback, возврат покупателя после оплаты, возвраты/отмены, фискализация **54‑ФЗ** (включая закрывающий чек **`doReceipt`** при переводе заказа в статус «Выполнен»).
 
+**Версия модуля:** `1.3.2` (см. `addon.xml`).
+
+**Режимы оплаты на витрине** (отдельные способы оплаты с одним процессором):
+
+| `checkout_mode` | Поведение |
+| ----------------- | --------- |
+| `hosted` | Редирект на платёжную страницу Сбера (`formUrl`) — по умолчанию |
+| `sberpay_sdk` | Landing на сайте + **SberPay Web SDK** (виджет) |
+| `sbp_c2b` | Landing + **СБП C2B**: QR на desktop, выбор банка / deep link на mobile |
+
+Для SDK и СБП у ТП Сбера должны быть включены соответствующие продукты (запрос в `Support_ecomm@sberbank.ru`). Для СБП C2B в ответе `register.do` должны приходить `externalParams.sbpPayload` и `qrcId`.
+
 Официальная спецификация шлюза: [документация Сбербанка](https://ecomtest.sberbank.ru/doc).
 
 ---
@@ -47,9 +59,13 @@
 
 | Путь                                              | Назначение                                                          |
 | ------------------------------------------------- | ------------------------------------------------------------------- |
-| `app/addons/as_sberpay_api/`                      | PHP: процессор, payment script, `func.php`, `init.php`, `addon.xml` |
+| `app/addons/as_sberpay_api/`                      | PHP: процессор, payment script, `func.php`, `init.php`, `addon.xml`, контроллеры `frontend` / `backend` |
 | `design/backend/templates/addons/as_sberpay_api/` | Шаблоны админки                                                     |
+| `var/themes_repository/responsive/templates/addons/as_sberpay_api/` | Витрина: landing SberPay SDK и СБП (`pay.tpl`, `pay_sbp.tpl`) |
+| `js/addons/as_sberpay_api/`                       | `sberpay_widget.js`, `sbp_pay.js`, vendor (QR, UMD SDK)             |
 | `var/langs/{ru,en}/addons/`                       | Переводы `.po`                                                      |
+
+При установке аддона CS-Cart копирует шаблоны из `var/themes_repository/` в активную тему. JS подключается с `{$config.current_location}/js/addons/as_sberpay_api/` — каталог `js/` должен лежать в **корне** установки CS-Cart (рядом с `app/`).
 
 ---
 
@@ -59,11 +75,13 @@
 
 | Параметр                | Описание                                                                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Режим checkout**      | `hosted`, `sberpay_sdk` или `sbp_c2b`. Для параллельного отображения на checkout создайте **отдельные** способы оплаты с одним процессором и разным режимом.                                                                     |
 | **Логин / пароль**      | Учётные данные API из договора. Формат логина (`P…` или суффикс `-api`) уточняйте в поддержке Сбера при ошибках авторизации. Смена пароля — в [документации Сбера](https://ecomtest.sberbank.ru/doc#tag/changePasswordServices). |
 | **Режим (test / live)** | Тест: `ecomtest.sberbank.ru`; бой: `epay.sberbank.ru` и отдельный OFD-контур для чеков.                                                                                                                                          |
 | **Стадийность**         | Одностадийные: `register.do`; двухстадийные: `registerPreAuth.do` + `deposit.do` / отмена.                                                                                                                                       |
 | **Статус при успехе**   | Статус заказа после подтверждённой оплаты.                                                                                                                                                                                       |
 | **Логирование**         | Запись в `var/logs/as_sberpay_api/sberpay_YYYY-MM.log`. Только для отладки.                                                                                                                                                      |
+| **Показывать ссылки на чеки ОФД** | Настройка аддона (Модули → AS SberPay API): ссылки на фискальные чеки в карточке заказа.                                                                                                                          |
 
 **Фискализация (54‑ФЗ):** включите отправку корзины на шлюз (`send_order`), если нужны чеки через связку Сбер → ОФД; закрывающий чек уходит при статусе заказа **«Выполнен»** (`C`). На тестовом терминале без ОФД фискальные поля часто дают `errorCode: 5` — это ограничение среды.
 
@@ -81,11 +99,26 @@
 
 ---
 
+## Checkout flows (кратко)
+
+### Hosted (классика)
+
+`register.do` → редирект на `formUrl` → callback / return → `fn_finish_payment`.
+
+### SberPay Web SDK
+
+После `register.do` покупатель попадает на `as_sberpay_api.pay?order_id=…` (`pay.tpl` + `sberpay_widget.js` + vendor SDK). Статус опрашивается через return/callback; отмена на landing — `as_sberpay_api.cancel` без отмены в банке (повторная оплата с карточки заказа).
+
+### СБП C2B
+
+`register.do` с `jsonParams` (`qrType=DYNAMIC_QR_SBP`, `sbp.scenario=C2B`). Метаданные `sbp_payload` / `qrc_id` — в таблице `?:sberpay_order_meta`. Landing: `as_sberpay_api.sbp` (`pay_sbp.tpl` + `sbp_pay.js`): QR, виджет банков НСПК (`widget.cbrpay.ru`), polling `as_sberpay_api.sbp_status` каждые 3 с, таймаут 10 мин → expire и статус «Неудача».
+
 ## Development
 
-- Ядро: `Tygh\Payments\Processors\AsSberPayApi` — HTTP JSON, `orderBundle`, методы API.
+- Ядро: `Tygh\Payments\Processors\AsSberPayApi` — HTTP JSON, `orderBundle`, методы API, ветвление по `checkout_mode`.
 - Сценарии оплаты: `app/addons/as_sberpay_api/payments/as_sberpay_api.php` (callback, return, register).
-- Хуки и метаданные: `func.php`, `init.php`.
+- Витрина: `app/addons/as_sberpay_api/controllers/frontend/as_sberpay_api.php`.
+- Хуки и метаданные: `func.php`, `init.php`, таблица `?:sberpay_order_meta`.
 - У нового партнёрского API параметр `orderId` в URL возврата **не гарантирован**; используется сохранённый `transaction_id`.
 
 Правила вкладов: [CONTRIBUTING.md](CONTRIBUTING.md). Чек-лист релиза: [docs/release-checklist.md](docs/release-checklist.md).
@@ -100,6 +133,8 @@
 | `errorCode: 5` при фискализации на тесте | Тестовый терминал без подключённой ОФД — проверка полного цикла на боевом с кассой.                                          |
 | Ошибки TLS                               | Корпоративный прокси/MITM: добавьте корневые CA в доверенные для PHP/cURL, не отключайте проверку без крайней необходимости. |
 | «Неверный идентификатор транзакции»      | Рассинхрон `transaction_id`; смотрите логи процессора на время return/callback.                                              |
+| СБП: нет QR / пустой landing             | Нет `sbpPayload` в `register` — не включён СБП C2B у ТП; проверьте режим `sbp_c2b` и лог `register`.                        |
+| SberPay SDK не открывается               | Продукт Web SDK не включён у ТП; отдельный способ с `sberpay_sdk`; консоль браузера и `sberpay_widget.js`.                   |
 
 ---
 

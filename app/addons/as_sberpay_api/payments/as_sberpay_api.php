@@ -69,6 +69,11 @@ if (defined('PAYMENT_NOTIFICATION')) {
 
         fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
 
+        $order_status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
+        if (in_array($order_status, [1, 2], true) && $processor->usesOrderBundle()) {
+            $processor->refreshClosingReceiptMeta($order_id, (string) $gateway_id, 'payment_confirmed');
+        }
+
         // Идемпотентность: не обрабатываем повторно если уже оплачен
         if ($order_info['status'] === $processor->getConfirmedStatus()) {
             if ($processor->isLogging()) {
@@ -80,7 +85,7 @@ if (defined('PAYMENT_NOTIFICATION')) {
         $pp_response = fn_as_sberpay_api_build_response($response, $processor);
 
         fn_finish_payment($order_id, $pp_response);
-        fn_order_placement_routines('save', $order_id, false);
+        fn_order_placement_routines('save', $order_id, [], false);
         exit;
     }
 
@@ -108,13 +113,21 @@ if (defined('PAYMENT_NOTIFICATION')) {
 
         $pp_response = ['order_status' => 'F'];
 
-        $gateway_id = $order_info['payment_info']['transaction_id'] ?? '';
-        $request_order_id = $_REQUEST['orderId'] ?? $_REQUEST['mdOrder'] ?? '';
+        $gateway_id = (string) ($order_info['payment_info']['transaction_id'] ?? '');
+        $request_order_id = fn_as_sberpay_api_get_request_gateway_id($_REQUEST);
+        $sdk_return_reason = fn_as_sberpay_api_get_sdk_return_reason($_REQUEST);
+        $sdk_state = !empty($_REQUEST['state']) ? strtolower((string) $_REQUEST['state']) : '';
+
+        if ($gateway_id === '' && $request_order_id !== '') {
+            $gateway_id = $request_order_id;
+        }
 
         if (!empty($request_order_id) && $request_order_id !== $gateway_id) {
             $pp_response['reason_text'] = 'Неверный идентификатор транзакции';
-        } elseif (empty($gateway_id)) {
-            $pp_response['reason_text'] = 'Не найден идентификатор транзакции';
+        } elseif ($gateway_id === '') {
+            $pp_response['reason_text'] = $sdk_return_reason !== ''
+                ? $sdk_return_reason
+                : 'Не найден идентификатор транзакции';
         } else {
             $response = $processor->getOrderStatusExtended($gateway_id);
 
@@ -124,12 +137,24 @@ if (defined('PAYMENT_NOTIFICATION')) {
 
             fn_as_sberpay_api_save_payment_meta($order_id, $response, $gateway_id);
 
+            $order_status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
+            if (in_array($order_status, [1, 2], true) && $processor->usesOrderBundle()) {
+                $processor->refreshClosingReceiptMeta($order_id, (string) $gateway_id, 'payment_confirmed');
+            }
+
             $pp_response = fn_as_sberpay_api_build_response($response, $processor);
         }
 
+        if (($pp_response['order_status'] ?? '') === 'F' && $sdk_return_reason !== '') {
+            if ($sdk_state === 'cancel') {
+                $pp_response['reason_text'] = $sdk_return_reason;
+            } elseif ($sdk_state === 'return' && empty($pp_response['reason_text'])) {
+                $pp_response['reason_text'] = $sdk_return_reason;
+            }
+        }
+
         fn_finish_payment($order_id, $pp_response);
-        fn_order_placement_routines('route', $order_id, false);
-        exit;
+        fn_as_sberpay_api_route_after_payment($order_id, $pp_response, $processor);
     }
 
     exit;
@@ -142,13 +167,69 @@ if (defined('PAYMENT_NOTIFICATION')) {
     $processor = new AsSberPayApi($processor_data);
     $response = $processor->register($order_info);
 
+    if ($processor->isSbpC2b()) {
+        if ($processor->isRegisterSuccessForMode($response)) {
+            $ext = $processor->extractRegisterExternalParams($response);
+
+            fn_update_order_payment_info($order_id, [
+                'transaction_id' => $response['orderId'],
+            ]);
+
+            fn_as_sberpay_api_save_sbp_register_meta(
+                $order_id,
+                $ext['sbp_payload'],
+                $ext['qrc_id'],
+                (string) $response['orderId']
+            );
+
+            fn_as_sberpay_api_save_fiscal_snapshot(
+                $order_id,
+                $order_info,
+                $processor->getLastRegisterContext(),
+                (string) $response['orderId']
+            );
+
+            fn_clear_cart(\Tygh::$app['session']['cart']);
+            fn_redirect(fn_url('as_sberpay_api.sbp?order_id=' . (int) $order_id, AREA, 'current'));
+            exit;
+        }
+
+        if ($processor->isLogging()) {
+            $processor->log([
+                'error_code' => $processor->getErrorCode(),
+                'error_text' => $processor->getErrorText(),
+                'response' => $response,
+            ], 'SBP register failed');
+        }
+
+        $pp_response = [
+            'order_status' => 'F',
+            'reason_text'  => $processor->getErrorText() ?: __('addons.as_sberpay_api.sbp_return_failed'),
+        ];
+        fn_finish_payment($order_id, $pp_response);
+        fn_as_sberpay_api_route_after_payment($order_id, $pp_response, $processor);
+        exit;
+    }
+
     if (!$processor->isError() && !empty($response['orderId']) && !empty($response['formUrl'])) {
-        // Сохраняем gateway order ID
         fn_update_order_payment_info($order_id, [
             'transaction_id' => $response['orderId'],
         ]);
 
+        fn_as_sberpay_api_save_fiscal_snapshot(
+            $order_id,
+            $order_info,
+            $processor->getLastRegisterContext(),
+            (string) $response['orderId']
+        );
+
         fn_clear_cart(\Tygh::$app['session']['cart']);
+
+        if ($processor->isSberPaySdk()) {
+            fn_redirect(fn_url('as_sberpay_api.pay?order_id=' . (int) $order_id, AREA, 'current'));
+            exit;
+        }
+
         fn_create_payment_form($response['formUrl'], [], '', true, 'GET');
     } else {
         if ($processor->isLogging()) {
@@ -158,76 +239,11 @@ if (defined('PAYMENT_NOTIFICATION')) {
             ], 'Register failed');
         }
 
-        fn_finish_payment($order_id, [
+        $pp_response = [
             'order_status' => 'F',
             'reason_text'  => $processor->getErrorText(),
-        ]);
-        fn_order_placement_routines('route', $order_id, false);
-    }
-}
-
-// =============================================================================
-//  Вспомогательная функция: формирование pp_response из ответа Сбера
-// =============================================================================
-
-/**
- * Формирует массив pp_response на основе ответа getOrderStatusExtended.
- *
- * orderStatus:
- *   0 = заказ зарегистрирован, не оплачен
- *   1 = предавторизованная сумма захолдирована
- *   2 = полная авторизация (оплачен)
- *   3 = авторизация отменена
- *   4 = по транзакции была проведена операция возврата
- *   5 = ACS авторизация инициирована
- *   6 = авторизация отклонена
- *
- * @param array           $response  Ответ API
- * @param AsSberPayApi    $processor Экземпляр процессора
- * @return array pp_response
- */
-function fn_as_sberpay_api_build_response($response, $processor)
-{
-    $status = isset($response['orderStatus']) ? (int) $response['orderStatus'] : -1;
-    $pai = !empty($response['paymentAmountInfo']) ? $response['paymentAmountInfo'] : [];
-
-    // Успешная оплата или холд
-    if ($status === 1 || $status === 2) {
-        return [
-            'order_status'      => $processor->getConfirmedStatus(),
-            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
-            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
-            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
-            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
         ];
+        fn_finish_payment($order_id, $pp_response);
+        fn_as_sberpay_api_route_after_payment($order_id, $pp_response, $processor);
     }
-
-    // Возврат
-    if ($status === 4) {
-        return [
-            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
-            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
-            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
-            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
-        ];
-    }
-
-    // Отмена
-    if ($status === 3) {
-        return [
-            'order_status'      => 'F',
-            'gateway_status'    => !empty($pai['paymentState']) ? $pai['paymentState'] : '',
-            'gateway_approved'  => !empty($pai['approvedAmount']) ? $pai['approvedAmount'] / 100 : 0,
-            'gateway_deposited' => !empty($pai['depositedAmount']) ? $pai['depositedAmount'] / 100 : 0,
-            'gateway_refunded'  => !empty($pai['refundedAmount']) ? $pai['refundedAmount'] / 100 : 0,
-        ];
-    }
-
-    // Ошибка / отклонение / прочее
-    return [
-        'order_status' => 'F',
-        'reason_text'  => !empty($response['actionCodeDescription'])
-            ? $response['actionCodeDescription']
-            : (!empty($response['errorMessage']) ? $response['errorMessage'] : 'Оплата не прошла'),
-    ];
 }

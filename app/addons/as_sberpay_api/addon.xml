@@ -2,7 +2,7 @@
 <addon scheme="3.0" edition_type="VENDOR">
     <id>as_sberpay_api</id>
 
-    <version>1.1.1</version>
+    <version>1.3.2</version>
 
     <authors>
         <author>
@@ -28,6 +28,19 @@
         <item for="description" lang="en">Payment via Sberbank acquiring (REST API)</item>
         <item for="description" lang="ru">Приём платежей через интернет-эквайринг Сбербанка (REST API)</item>
     </translations>
+
+    <settings edition_type="ROOT,ULT:VENDOR">
+        <sections>
+            <section id="general">
+                <items>
+                    <item id="show_ofd_receipt_links">
+                        <type>checkbox</type>
+                        <default_value>Y</default_value>
+                    </item>
+                </items>
+            </section>
+        </sections>
+    </settings>
 
     <functions>
         <item for="install">fn_as_sberpay_api_install</item>

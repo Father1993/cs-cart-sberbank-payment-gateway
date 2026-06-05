@@ -29,3 +29,6 @@ composer.phar
 
 # Legacy local tooling (do not add back)
 CommitPilot/
+
+# Private / company fork (local sync only, never commit)
+cs-cart-as_sberpay_api/
