@@ -592,3 +592,47 @@ msgstr "Оплата через СБП отменена. Вы можете оп�
 msgctxt "Languages::addons.as_sberpay_api.sbp_return_failed"
 msgid "SBP payment was not completed. You can try again on the order details page."
 msgstr "Оплата через СБП не завершена. Попробуйте оплатить заказ снова на странице деталей заказа."
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_title"
+msgid "Sber receipt audit"
+msgstr "Аудит чеков Сбер"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_filters"
+msgid "Audit filters"
+msgstr "Фильтры аудита"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_only_review"
+msgid "Show only rows requiring review"
+msgstr "Показывать только строки для проверки"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_run"
+msgid "Check receipts in OFD"
+msgstr "Проверить чеки в OFD"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_results"
+msgid "Audit results"
+msgstr "Результаты аудита"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_help"
+msgid "Audit only reads Sber OFD statuses and stores diagnostic rows. It does not change orders, payment metadata, receipts, or send corrections."
+msgstr "Аудит только читает статусы чеков из OFD Сбера и сохраняет диагностические строки. Он не меняет заказы, meta платежей, чеки и не отправляет коррекции."
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_role"
+msgid "Detected role"
+msgstr "Роль чека"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_expected"
+msgid "Expected signs"
+msgstr "Ожидаемые признаки"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_review"
+msgid "Review"
+msgstr "Проверка"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_snapshot_missing"
+msgid "Local fiscal snapshot is missing"
+msgstr "Локальный фискальный snapshot отсутствует"
+
+msgctxt "Languages::addons.as_sberpay_api.receipt_audit_refresh_done"
+msgid "Receipt audit completed: orders [orders], receipts [receipts], review [review], errors [errors]."
+msgstr "Аудит чеков завершён: заказов [orders], чеков [receipts], к проверке [review], ошибок [errors]."

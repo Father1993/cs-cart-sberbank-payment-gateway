@@ -229,5 +229,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         return [CONTROLLER_STATUS_REDIRECT, 'orders.details?order_id=' . $order_id];
     }
+
+    if ($mode === 'receipt_audit_refresh') {
+        $params = fn_as_sberpay_api_get_receipt_audit_params($_REQUEST);
+        $result = fn_as_sberpay_api_run_receipt_audit($params);
+
+        fn_set_notification(
+            'N',
+            __('notice'),
+            __('addons.as_sberpay_api.receipt_audit_refresh_done', [
+                '[orders]' => (int) $result['orders'],
+                '[receipts]' => (int) $result['checked'],
+                '[review]' => (int) $result['review'],
+                '[errors]' => (int) $result['errors'],
+            ])
+        );
+
+        $redirect_params = array_filter([
+            'order_id' => !empty($params['order_id']) ? (int) $params['order_id'] : null,
+            'date_from' => !empty($params['date_from']) ? (string) $params['date_from'] : null,
+            'date_to' => !empty($params['date_to']) ? (string) $params['date_to'] : null,
+            'limit' => (int) $params['limit'],
+            'only_review' => !empty($params['only_review']) && $params['only_review'] === 'Y' ? 'Y' : null,
+        ], static function ($value) {
+            return $value !== null && $value !== '';
+        });
+
+        return [CONTROLLER_STATUS_REDIRECT, 'as_sberpay_api.receipt_audit' . ($redirect_params ? '&' . http_build_query($redirect_params) : '')];
+    }
+}
+
+if ($mode === 'receipt_audit') {
+    fn_as_sberpay_api_ensure_receipt_audit_table();
+
+    $params = fn_as_sberpay_api_get_receipt_audit_params($_REQUEST);
+    $audit_results = fn_as_sberpay_api_get_receipt_audit_results($params);
+
+    Tygh::$app['view']->assign([
+        'content_tpl' => 'addons/as_sberpay_api/views/as_sberpay_api/receipt_audit.tpl',
+        'audit_params' => $params,
+        'audit_results' => $audit_results,
+    ]);
 }
 
