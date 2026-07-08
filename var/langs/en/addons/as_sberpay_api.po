@@ -305,6 +305,14 @@ msgctxt "SettingsOptions::as_sberpay_api::show_ofd_receipt_links"
 msgid "Show links to fiscal receipts in OFD (admin order page and storefront order details)"
 msgstr "Show links to fiscal receipts in OFD (admin order page and storefront order details)"
 
+msgctxt "SettingsOptions::as_sberpay_api::send_closing_receipt"
+msgid "Send closing receipt from the site (doReceipt on order completion)"
+msgstr "Send closing receipt from the site (doReceipt on order completion)"
+
+msgctxt "SettingsTooltips::as_sberpay_api::send_closing_receipt"
+msgid "Disable if closing receipt is issued by 1C or another external system when the order is fulfilled."
+msgstr "Disable if closing receipt is issued by 1C or another external system when the order is fulfilled."
+
 msgctxt "Languages::addons.as_sberpay_api.receipt_ofd_links_title"
 msgid "Receipts in OFD"
 msgstr "Receipts in OFD"

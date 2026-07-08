@@ -572,6 +572,11 @@ class AsSberPayApi
             return [];
         }
 
+        if (!fn_as_sberpay_api_is_closing_receipt_send_enabled()) {
+            $this->log(['order_id' => $order_id], 'doReceipt: skipped disabled (external)');
+            return [];
+        }
+
         $gateway_order_id = $order_info['payment_info']['transaction_id'] ?? '';
         if (!$gateway_order_id) {
             $this->log(['order_id' => $order_id], 'doReceipt: skipped no transaction_id');

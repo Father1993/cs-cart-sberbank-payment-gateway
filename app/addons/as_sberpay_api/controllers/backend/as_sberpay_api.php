@@ -218,7 +218,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ])
         );
 
-        $expect_closing = ($order_info['status'] ?? '') === 'C' || !empty($payment_meta['closing_receipt']);
+        $expect_closing = fn_as_sberpay_api_is_closing_receipt_send_enabled()
+            && (($order_info['status'] ?? '') === 'C' || !empty($payment_meta['closing_receipt']));
         if ($expect_closing && empty($sync['found'])) {
             fn_set_notification('W', __('warning'), __('addons.as_sberpay_api.receipt_closing_not_found'));
         }

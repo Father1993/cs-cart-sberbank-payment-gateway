@@ -1203,6 +1203,14 @@ function fn_as_sberpay_api_change_order_status_post(
         ], 'change_order_status_post');
     }
 
+    if (!fn_as_sberpay_api_is_closing_receipt_send_enabled()) {
+        if ($processor->isLogging()) {
+            $processor->log(['order_id' => $order_id], 'change_order_status_post: closing receipt disabled (external)');
+        }
+
+        return;
+    }
+
     if (in_array($payment_meta['closing_receipt']['status'] ?? '', ['succeeded', 'pending'], true)) {
         if ($processor->isLogging()) {
             $processor->log(['order_id' => $order_id], 'change_order_status_post: closing receipt already known');
@@ -1367,6 +1375,26 @@ function fn_as_sberpay_api_build_receipt_line_view($status, $updated_at = 0, $er
             : '',
         'error_message' => $status === 'failed' ? (string) $error_message : '',
     ];
+}
+
+/**
+ * Отправляет ли сайт закрывающий чек (doReceipt) при статусе «Выполнен».
+ * Если выключено — закрывающий чек формирует 1С (или другая внешняя система).
+ */
+function fn_as_sberpay_api_is_closing_receipt_send_enabled()
+{
+    if (\Tygh\Registry::get('addons.as_sberpay_api.status') !== 'A') {
+        return false;
+    }
+
+    $value = \Tygh\Registry::get('addons.as_sberpay_api.send_closing_receipt');
+
+    // До обновления модуля на 1.3.3+ настройка отсутствует — сохраняем прежнее поведение.
+    if ($value === '' || $value === null) {
+        return true;
+    }
+
+    return $value === 'Y';
 }
 
 /**
